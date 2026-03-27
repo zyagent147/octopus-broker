@@ -8,6 +8,10 @@ const loginSchema = z.object({
   code: z.string().min(1, '微信登录 code 不能为空'),
 })
 
+const devLoginSchema = z.object({
+  devCode: z.string().min(1, '开发模式登录码不能为空'),
+})
+
 const updateUserInfoSchema = z.object({
   nickname: z.string().max(128).optional(),
   avatar: z.string().url().max(512).optional(),
@@ -39,6 +43,41 @@ export class AuthController {
     return {
       code: 200,
       msg: '登录成功',
+      data: loginResult,
+    }
+  }
+
+  /**
+   * 开发模式登录（仅H5环境使用）
+   */
+  @Post('dev-login')
+  @HttpCode(HttpStatus.OK)
+  async devLogin(@Body() body: unknown) {
+    const result = devLoginSchema.safeParse(body)
+    if (!result.success) {
+      return {
+        code: 400,
+        msg: '参数错误',
+        data: null,
+      }
+    }
+
+    const { devCode } = result.data
+    
+    // 验证开发模式登录码
+    if (devCode !== 'DEV2024') {
+      return {
+        code: 401,
+        msg: '开发模式登录码错误',
+        data: null,
+      }
+    }
+
+    const loginResult = await this.authService.devLogin()
+
+    return {
+      code: 200,
+      msg: '开发模式登录成功',
       data: loginResult,
     }
   }

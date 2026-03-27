@@ -76,25 +76,28 @@ const LoginPage: FC = () => {
     setLoading(true)
 
     try {
-      // 模拟登录 - 生成随机用户ID
-      const mockUserId = 'dev_user_' + Date.now()
-      const mockUser = {
-        id: mockUserId,
-        openid: mockUserId,
-        nickname: '测试经纪人',
-        avatar: '',
+      // 调用后端开发模式登录接口
+      const res = await Network.request({
+        url: '/api/auth/dev-login',
+        method: 'POST',
+        data: { devCode: 'DEV2024' },
+      })
+
+      if (res.data.code === 200) {
+        const { token, user } = res.data.data
+        
+        // 保存登录信息
+        login(user, token)
+
+        Taro.showToast({ title: '开发模式登录成功', icon: 'success' })
+
+        // 延迟跳转
+        setTimeout(() => {
+          Taro.switchTab({ url: '/pages/customers/index' })
+        }, 1000)
+      } else {
+        Taro.showToast({ title: res.data.msg || '登录失败', icon: 'none' })
       }
-      const mockToken = 'dev_token_' + Date.now()
-
-      // 保存登录信息
-      login(mockUser, mockToken)
-
-      Taro.showToast({ title: '开发模式登录成功', icon: 'success' })
-
-      // 延迟跳转
-      setTimeout(() => {
-        Taro.switchTab({ url: '/pages/customers/index' })
-      }, 1000)
     } catch (error: any) {
       console.error('登录失败', error)
       Taro.showToast({

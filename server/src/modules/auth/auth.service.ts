@@ -104,6 +104,68 @@ export class AuthService {
   }
 
   /**
+   * 开发模式登录（H5测试用）
+   */
+  async devLogin() {
+    const client = getSupabaseClient()
+    
+    // 使用固定的测试 openid
+    const devOpenid = 'dev-test-user-001'
+    
+    // 查询或创建测试用户
+    let { data: user, error } = await client
+      .from('users')
+      .select('*')
+      .eq('openid', devOpenid)
+      .maybeSingle()
+
+    if (error) {
+      this.logger.error(`查询测试用户失败: ${error.message}`)
+      throw new UnauthorizedException('查询测试用户失败')
+    }
+
+    // 如果用户不存在，创建测试用户（设为管理员）
+    if (!user) {
+      const { data: newUser, error: createError } = await client
+        .from('users')
+        .insert({ 
+          openid: devOpenid,
+          nickname: '测试管理员',
+          role: 'admin',
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        this.logger.error(`创建测试用户失败: ${createError.message}`)
+        throw new UnauthorizedException('创建测试用户失败')
+      }
+      user = newUser
+    }
+
+    // 生成 JWT token
+    const payload: UserPayload = {
+      id: user.id,
+      openid: user.openid,
+      role: user.role || 'admin',
+    }
+
+    const token = this.jwtService.sign(payload)
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        openid: user.openid,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        phone: user.phone,
+        role: user.role || 'admin',
+      },
+    }
+  }
+
+  /**
    * 更新用户信息
    */
   async updateUserInfo(userId: string, data: { nickname?: string; avatar?: string; phone?: string }) {
