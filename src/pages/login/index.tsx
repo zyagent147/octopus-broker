@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
-import { Button } from '@/components/ui/button'
 
 const LoginPage: FC = () => {
   const [loading, setLoading] = useState(false)
@@ -111,34 +110,60 @@ const LoginPage: FC = () => {
   }
 
   return (
-    <View className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-white px-8">
+    <View 
+      style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: '40px 32px',
+        backgroundColor: '#f0f9ff',
+        height: '100%'
+      }}
+    >
       {/* Logo */}
-      <View className="mb-16">
-        <View className="w-24 h-24 bg-blue-500 rounded-3xl flex items-center justify-center shadow-lg">
-          <Text className="text-white text-5xl">🐙</Text>
+      <View style={{ marginBottom: '48px' }}>
+        <View 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: '96px', 
+            height: '96px', 
+            backgroundColor: '#3b82f6', 
+            borderRadius: '24px' 
+          }}
+        >
+          <Text style={{ fontSize: '48px' }}>🐙</Text>
         </View>
       </View>
 
       {/* 标题 */}
-      <Text className="block text-3xl font-bold text-gray-800 mb-3">章鱼经纪人</Text>
-      <Text className="block text-base text-gray-500 mb-12">轻量高效的房产经纪人办公工具</Text>
+      <Text style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', color: '#1f2937' }}>章鱼经纪人</Text>
+      <Text style={{ fontSize: '14px', marginBottom: '40px', color: '#6b7280' }}>轻量高效的房产经纪人办公工具</Text>
 
       {/* 登录按钮 */}
-      <View className="w-full max-w-sm">
-        <Button
-          className="w-full h-12 bg-blue-500 rounded-xl flex items-center justify-center"
-          onClick={handleLogin}
-          disabled={loading}
-        >
-          <Text className="text-white text-lg font-medium">
-            {loading ? '登录中...' : '微信一键登录'}
-          </Text>
-        </Button>
+      <View 
+        style={{ 
+          width: '100%', 
+          maxWidth: '320px',
+          height: '48px',
+          backgroundColor: '#3b82f6',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+        onClick={handleLogin}
+      >
+        <Text style={{ color: '#ffffff', fontSize: '16px', fontWeight: '500' }}>
+          {loading ? '登录中...' : '微信一键登录'}
+        </Text>
       </View>
 
       {/* 说明 */}
-      <View className="mt-8">
-        <Text className="block text-sm text-gray-400 text-center">
+      <View style={{ marginTop: '32px' }}>
+        <Text style={{ fontSize: '12px', textAlign: 'center', color: '#9ca3af' }}>
           登录即代表同意《用户协议》和《隐私政策》
         </Text>
       </View>
