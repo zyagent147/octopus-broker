@@ -10,6 +10,9 @@ const LoginPage: FC = () => {
   const [loading, setLoading] = useState(false)
   const login = useUserStore((state) => state.login)
 
+  // 检测是否为开发环境
+  const isDev = process.env.NODE_ENV === 'development' || !Taro.getEnv()
+
   const handleLogin = async () => {
     if (loading) return
 
@@ -54,6 +57,44 @@ const LoginPage: FC = () => {
     }
   }
 
+  // 开发模式模拟登录
+  const handleDevLogin = async () => {
+    if (loading) return
+
+    setLoading(true)
+
+    try {
+      // 模拟登录 - 生成随机用户ID
+      const mockUserId = 'dev_user_' + Date.now()
+      const mockUser = {
+        id: mockUserId,
+        openid: mockUserId,
+        nickname: '测试经纪人',
+        avatar: '',
+      }
+      const mockToken = 'dev_token_' + Date.now()
+
+      // 保存登录信息
+      login(mockUser, mockToken)
+
+      Taro.showToast({ title: '开发模式登录成功', icon: 'success' })
+
+      // 延迟跳转
+      setTimeout(() => {
+        Taro.switchTab({ url: '/pages/customers/index' })
+      }, 1000)
+    } catch (error: any) {
+      console.error('登录失败', error)
+      Taro.showToast({
+        title: '登录失败，请重试',
+        icon: 'none',
+        duration: 2000,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <View className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-white px-8">
       {/* Logo */}
@@ -68,15 +109,25 @@ const LoginPage: FC = () => {
       <Text className="block text-base text-gray-500 mb-12">轻量高效的房产经纪人办公工具</Text>
 
       {/* 登录按钮 */}
-      <View className="w-full max-w-sm">
+      <View className="w-full max-w-sm space-y-3">
         <Button
           className="w-full h-12 bg-blue-500 rounded-xl flex items-center justify-center"
           onClick={handleLogin}
-          
           disabled={loading}
         >
           <Text className="text-white text-lg font-medium">
             {loading ? '登录中...' : '微信一键登录'}
+          </Text>
+        </Button>
+
+        {/* 开发模式登录按钮 */}
+        <Button
+          className="w-full h-12 bg-gray-500 rounded-xl flex items-center justify-center"
+          onClick={handleDevLogin}
+          disabled={loading}
+        >
+          <Text className="text-white text-base font-medium">
+            开发模式登录（无需AppID）
           </Text>
         </Button>
       </View>
