@@ -1,7 +1,9 @@
 import Taro from '@tarojs/taro'
 
-// 从环境变量获取项目域名
-const PROJECT_DOMAIN = process.env.PROJECT_DOMAIN || ''
+// 使用 Taro defineConstants 定义的常量（构建时注入）
+// 在 config/index.ts 的 defineConstants 中配置
+declare const PROJECT_DOMAIN: string
+declare const TARO_ENV: string
 
 interface RequestOptions {
   url: string
@@ -38,6 +40,15 @@ const getToken = (): string | null => {
   }
 }
 
+// 获取项目域名
+const getProjectDomain = (): string => {
+  // 优先使用构建时注入的常量
+  if (typeof PROJECT_DOMAIN !== 'undefined' && PROJECT_DOMAIN) {
+    return PROJECT_DOMAIN
+  }
+  return ''
+}
+
 // 网络请求封装
 export const Network = {
   /**
@@ -53,7 +64,8 @@ export const Network = {
     }
 
     // 构建完整 URL
-    const fullUrl = url.startsWith('http') ? url : `${PROJECT_DOMAIN}${url}`
+    const projectDomain = getProjectDomain()
+    const fullUrl = url.startsWith('http') ? url : `${projectDomain}${url}`
 
     // 打印请求信息
     console.log('📤 Network Request:', {
@@ -144,7 +156,8 @@ export const Network = {
     }
 
     // 构建完整 URL
-    const fullUrl = url.startsWith('http') ? url : `${PROJECT_DOMAIN}${url}`
+    const projectDomain = getProjectDomain()
+    const fullUrl = url.startsWith('http') ? url : `${projectDomain}${url}`
 
     console.log('📤 Upload File:', {
       url: fullUrl,
@@ -202,7 +215,8 @@ export const Network = {
     }
 
     // 构建完整 URL
-    const fullUrl = url.startsWith('http') ? url : `${PROJECT_DOMAIN}${url}`
+    const projectDomain = getProjectDomain()
+    const fullUrl = url.startsWith('http') ? url : `${projectDomain}${url}`
 
     console.log('📤 Download File:', { url: fullUrl })
 
