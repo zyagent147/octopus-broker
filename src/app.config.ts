@@ -2,8 +2,15 @@ export default defineAppConfig({
   pages: [
     'pages/login/index',
     'pages/customers/index',
+    'pages/customers/detail/index',
+    'pages/customers/form/index',
+    'pages/customers/follow-up/index',
     'pages/properties/index',
+    'pages/properties/detail/index',
+    'pages/properties/form/index',
+    'pages/properties/ai-copy/index',
     'pages/services/index',
+    'pages/services/form/index',
     'pages/profile/index',
   ],
   window: {

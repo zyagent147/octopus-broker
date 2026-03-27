@@ -3,9 +3,13 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { AuthModule } from './modules/auth/auth.module'
 import { UsersModule } from './modules/users/users.module'
+import { CustomersModule } from './modules/customers/customers.module'
+import { PropertiesModule } from './modules/properties/properties.module'
+import { AiModule } from './modules/ai/ai.module'
+import { ServicesModule } from './modules/services/services.module'
 
 @Module({
-  imports: [AuthModule, UsersModule],
+  imports: [AuthModule, UsersModule, CustomersModule, PropertiesModule, AiModule, ServicesModule],
   controllers: [AppController],
   providers: [AppService],
 })

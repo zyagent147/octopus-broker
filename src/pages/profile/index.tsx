@@ -1,6 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import type { FC } from 'react'
 import { useState } from 'react'
 import { useUserStore } from '@/stores/user'

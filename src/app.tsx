@@ -1,11 +1,10 @@
 import { PropsWithChildren, useEffect } from 'react'
-import { useDidShow } from '@tarojs/taro'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { LucideTaroProvider } from 'lucide-react-taro'
-import '@/app.css'
 import { Toaster } from '@/components/ui/toast'
-import { Preset } from './presets'
 import { useUserStore } from '@/stores/user'
+import '@/app.css'
+import { Preset } from './presets'
 
 const App = ({ children }: PropsWithChildren) => {
   const isLoggedIn = useUserStore((state) => state.isLoggedIn)

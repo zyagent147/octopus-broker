@@ -1,9 +1,10 @@
-import { View, Text, Image, Button } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import type { FC } from 'react'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
-import type { FC } from 'react'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
+import { Button } from '@/components/ui/button'
 
 const LoginPage: FC = () => {
   const [loading, setLoading] = useState(false)
@@ -71,7 +72,7 @@ const LoginPage: FC = () => {
         <Button
           className="w-full h-12 bg-blue-500 rounded-xl flex items-center justify-center"
           onClick={handleLogin}
-          loading={loading}
+          
           disabled={loading}
         >
           <Text className="text-white text-lg font-medium">
