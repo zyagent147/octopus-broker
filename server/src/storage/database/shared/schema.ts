@@ -26,6 +26,7 @@ export const users = pgTable(
     nickname: varchar("nickname", { length: 128 }),
     avatar: varchar("avatar", { length: 512 }),
     phone: varchar("phone", { length: 20 }),
+    role: varchar("role", { length: 20 }).notNull().default("broker"), // 'admin' | 'broker'
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }),
   },
@@ -157,5 +158,58 @@ export const reminders = pgTable(
     index("reminders_customer_id_idx").on(table.customer_id),
     index("reminders_date_idx").on(table.reminder_date),
     index("reminders_is_sent_idx").on(table.is_sent),
+  ]
+)
+
+// 服务商表（管理后台维护）
+export const providers = pgTable(
+  "providers",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    service_type: varchar("service_type", { length: 50 }).notNull(), // 'move' | 'clean' | 'repair' | 'decoration' | 'housekeeping'
+    name: varchar("name", { length: 128 }).notNull(),
+    contact_person: varchar("contact_person", { length: 64 }),
+    phone: varchar("phone", { length: 20 }).notNull(),
+    wechat: varchar("wechat", { length: 64 }),
+    address: varchar("address", { length: 256 }),
+    description: text("description"),
+    price_range: varchar("price_range", { length: 100 }),
+    rating: integer("rating").default(5), // 1-5星评分
+    is_active: boolean("is_active").default(true).notNull(),
+    sort_order: integer("sort_order").default(0),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("providers_service_type_idx").on(table.service_type),
+    index("providers_is_active_idx").on(table.is_active),
+    index("providers_sort_order_idx").on(table.sort_order),
+  ]
+)
+
+// 生活服务记录表
+export const services = pgTable(
+  "services",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    user_id: varchar("user_id", { length: 36 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+    provider_id: varchar("provider_id", { length: 36 }).references(() => providers.id, { onDelete: "set null" }),
+    service_type: varchar("service_type", { length: 50 }).notNull(), // 'move' | 'clean' | 'repair' | 'decoration' | 'housekeeping'
+    title: varchar("title", { length: 128 }).notNull(),
+    provider_name: varchar("provider_name", { length: 128 }).notNull(),
+    provider_phone: varchar("provider_phone", { length: 20 }).notNull(),
+    price: integer("price"),
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending' | 'processing' | 'completed'
+    scheduled_date: timestamp("scheduled_date", { withTimezone: true }),
+    service_address: varchar("service_address", { length: 256 }),
+    notes: text("notes"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("services_user_id_idx").on(table.user_id),
+    index("services_provider_id_idx").on(table.provider_id),
+    index("services_service_type_idx").on(table.service_type),
+    index("services_status_idx").on(table.status),
   ]
 )

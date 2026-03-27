@@ -13,6 +13,7 @@ interface Service {
   title: string
   provider_name: string
   provider_phone: string
+  provider_id?: string
   price?: number
   status: 'pending' | 'processing' | 'completed'
   scheduled_date?: string

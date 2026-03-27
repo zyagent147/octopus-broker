@@ -8,6 +8,7 @@ interface User {
   nickname?: string
   avatar?: string
   phone?: string
+  role?: string
 }
 
 interface UserState {

@@ -11,6 +11,8 @@ export default defineAppConfig({
     'pages/properties/ai-copy/index',
     'pages/services/index',
     'pages/services/form/index',
+    'pages/admin/providers/index',
+    'pages/admin/providers/form/index',
     'pages/profile/index',
   ],
   window: {

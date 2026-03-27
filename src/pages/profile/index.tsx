@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 import { Network } from '@/network'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Settings, FileText, LogOut, ChevronRight } from 'lucide-react-taro'
+import { User, Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
 
 const ProfilePage: FC = () => {
   const user = useUserStore((state) => state.user)
@@ -49,6 +49,17 @@ const ProfilePage: FC = () => {
     { icon: FileText, label: '隐私协议', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
     { icon: Settings, label: '全局提醒设置', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
   ]
+
+  // 管理员菜单项
+  const adminMenuItems = [
+    { 
+      icon: Shield, 
+      label: '服务商管理', 
+      action: () => Taro.navigateTo({ url: '/pages/admin/providers/index' }) 
+    },
+  ]
+
+  const isAdmin = user?.role === 'admin'
 
   return (
     <View className="min-h-screen bg-gray-50">
@@ -106,7 +117,27 @@ const ProfilePage: FC = () => {
       </View>
 
       {/* 功能菜单 */}
-      <View className="px-4 mt-4">
+      <View className="px-4 mt-4 space-y-3">
+        {/* 管理员菜单 */}
+        {isAdmin && (
+          <Card>
+            <CardContent className="py-2">
+              {adminMenuItems.map((item) => (
+                <View
+                  key={item.label}
+                  className="flex items-center py-3"
+                  onClick={item.action}
+                >
+                  <item.icon size={20} color="#3b82f6" />
+                  <Text className="flex-1 ml-3 text-sm text-gray-700">{item.label}</Text>
+                  <ChevronRight size={16} color="#8c8c8c" />
+                </View>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 普通菜单 */}
         <Card>
           <CardContent className="py-2">
             {menuItems.map((item, index) => (

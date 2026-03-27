@@ -13,6 +13,7 @@ interface WechatSessionResponse {
 interface UserPayload {
   id: string
   openid: string
+  role: string
 }
 
 @Injectable()
@@ -80,6 +81,7 @@ export class AuthService {
       const payload: UserPayload = {
         id: user.id,
         openid: user.openid,
+        role: user.role || 'broker',
       }
 
       const token = this.jwtService.sign(payload)
@@ -88,9 +90,11 @@ export class AuthService {
         token,
         user: {
           id: user.id,
+          openid: user.openid,
           nickname: user.nickname,
           avatar: user.avatar,
           phone: user.phone,
+          role: user.role || 'broker',
         },
       }
     } catch (error) {
@@ -147,6 +151,6 @@ export class AuthService {
    * 验证 JWT token
    */
   async validateUser(payload: UserPayload) {
-    return { id: payload.id, openid: payload.openid }
+    return { id: payload.id, openid: payload.openid, role: payload.role }
   }
 }

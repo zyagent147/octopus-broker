@@ -6,12 +6,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ChevronDown, Check } from 'lucide-react-taro'
+
+interface Provider {
+  id: string
+  name: string
+  phone: string
+  service_type: string
+  price_range?: string
+}
 
 interface ServiceForm {
   service_type: 'move' | 'clean' | 'repair' | 'other'
   title: string
   provider_name: string
   provider_phone: string
+  provider_id?: string
   price: string
   status: 'pending' | 'processing' | 'completed'
   scheduled_date: string
@@ -24,6 +34,7 @@ const initialForm: ServiceForm = {
   title: '',
   provider_name: '',
   provider_phone: '',
+  provider_id: undefined,
   price: '',
   status: 'pending',
   scheduled_date: '',
@@ -38,12 +49,29 @@ export default function ServiceFormPage() {
   const [form, setForm] = useState<ServiceForm>(initialForm)
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [providers, setProviders] = useState<Provider[]>([])
+  const [showProviderPicker, setShowProviderPicker] = useState(false)
 
   useEffect(() => {
+    // 加载服务商列表
+    fetchProviders()
+    
     if (id) {
       fetchService()
     }
   }, [id])
+
+  const fetchProviders = async () => {
+    try {
+      const res = await Network.request({
+        url: '/api/providers',
+        method: 'GET',
+      })
+      setProviders(res.data.data || [])
+    } catch (error) {
+      console.error('获取服务商列表失败:', error)
+    }
+  }
 
   const fetchService = async () => {
     try {
@@ -185,13 +213,66 @@ export default function ServiceFormPage() {
               </View>
 
               <View>
-                <Text className="block text-sm text-gray-600 mb-2">服务商名称 *</Text>
+                <Text className="block text-sm text-gray-600 mb-2">服务商 *</Text>
+                
+                {/* 服务商选择器 */}
+                {providers.length > 0 && (
+                  <View 
+                    className="bg-gray-50 rounded-xl px-4 py-3 mb-2"
+                    onClick={() => setShowProviderPicker(!showProviderPicker)}
+                  >
+                    <View className="flex items-center justify-between">
+                      <Text className={`text-sm ${form.provider_name ? 'text-gray-900' : 'text-gray-400'}`}>
+                        {form.provider_name || '从服务商库选择'}
+                      </Text>
+                      <ChevronDown size={18} color="#999" />
+                    </View>
+                  </View>
+                )}
+
+                {/* 服务商下拉列表 */}
+                {showProviderPicker && providers.length > 0 && (
+                  <View className="bg-white border border-gray-200 rounded-xl mb-2 max-h-48 overflow-y-auto">
+                    {providers
+                      .filter(p => p.service_type === form.service_type || form.service_type === 'other')
+                      .map(provider => (
+                        <View
+                          key={provider.id}
+                          className={`px-4 py-3 border-b border-gray-100 last:border-0 flex items-center justify-between ${
+                            form.provider_id === provider.id ? 'bg-sky-50' : ''
+                          }`}
+                          onClick={() => {
+                            setForm(prev => ({
+                              ...prev,
+                              provider_id: provider.id,
+                              provider_name: provider.name,
+                              provider_phone: provider.phone,
+                            }))
+                            setShowProviderPicker(false)
+                          }}
+                        >
+                          <View className="flex-1">
+                            <Text className="block text-gray-900">{provider.name}</Text>
+                            <Text className="block text-xs text-gray-500 mt-1">{provider.phone}</Text>
+                          </View>
+                          {form.provider_id === provider.id && (
+                            <Check size={18} color="#0ea5e9" />
+                          )}
+                        </View>
+                      ))}
+                  </View>
+                )}
+
+                {/* 手动输入 */}
                 <View className="bg-gray-50 rounded-xl px-4 py-3">
                   <Input
-                    className="w-full bg-transparent"
-                    placeholder="服务商或个人名称"
+                    className="w-full bg-transparent text-sm"
+                    placeholder="或手动输入服务商名称"
                     value={form.provider_name}
-                    onInput={(e) => handleInputChange('provider_name', (e as any).detail.value)}
+                    onInput={(e) => {
+                      handleInputChange('provider_name', (e as any).detail.value)
+                      setForm(prev => ({ ...prev, provider_id: undefined }))
+                    }}
                   />
                 </View>
               </View>

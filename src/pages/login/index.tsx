@@ -21,7 +21,7 @@ const LoginPage: FC = () => {
       console.log('当前运行环境:', env)
 
       // 如果是H5环境，使用开发模式登录
-      if (env === 'WEB' || env === 'WEBVIEW') {
+      if (env === Taro.ENV_TYPE.WEB) {
         console.log('H5环境，使用开发模式登录')
         await handleDevLogin()
         return
