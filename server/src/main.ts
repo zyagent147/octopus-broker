@@ -2,6 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
 import * as express from 'express';
 import { HttpStatusInterceptor } from '@/interceptors/http-status.interceptor';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// 手动加载 .env 文件（必须在 AppModule 初始化之前）
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 function parsePort(): number {
   const args = process.argv.slice(2);

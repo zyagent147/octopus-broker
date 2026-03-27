@@ -3,7 +3,6 @@ import Taro from '@tarojs/taro'
 // 使用 Taro defineConstants 定义的常量（构建时注入）
 // 在 config/index.ts 的 defineConstants 中配置
 declare const PROJECT_DOMAIN: string
-declare const TARO_ENV: string
 
 interface RequestOptions {
   url: string

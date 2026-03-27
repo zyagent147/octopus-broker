@@ -15,24 +15,16 @@ import { PropertiesService } from './properties.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { z } from 'zod'
 
-// DTO 验证
+// DTO 验证 - 匹配数据库表结构
 const createPropertySchema = z.object({
-  name: z.string().min(1, '房源名称不能为空').max(100),
+  community: z.string().min(1, '小区名称不能为空').max(100),
+  building: z.string().max(50).optional(),
   address: z.string().min(1, '房源地址不能为空').max(200),
-  property_type: z.enum(['apartment', 'house', 'villa', 'shop']).optional(),
+  layout: z.string().max(50).optional(),
   area: z.number().positive().optional(),
   price: z.number().positive().optional(),
-  layout: z.string().max(50).optional(),
-  floor: z.string().max(50).optional(),
-  orientation: z.string().max(50).optional(),
-  decoration: z.string().max(100).optional(),
   status: z.enum(['available', 'rented', 'sold']).optional(),
-  cover_image: z.string().url().optional(),
-  images: z.array(z.string().url()).optional(),
-  tags: z.array(z.string()).optional(),
-  description: z.string().max(2000).optional(),
-  contact_name: z.string().max(50).optional(),
-  contact_phone: z.string().max(20).optional(),
+  images: z.array(z.string()).optional(),
 })
 
 const updatePropertySchema = createPropertySchema.partial()
