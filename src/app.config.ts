@@ -1,5 +1,6 @@
 export default defineAppConfig({
   pages: [
+    'pages/login/index',
     'pages/customers/index',
     'pages/properties/index',
     'pages/services/index',
@@ -8,7 +9,7 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#ffffff',
-    navigationBarTitleText: '经纪人办公工具',
+    navigationBarTitleText: '章鱼经纪人',
     navigationBarTextStyle: 'black',
   },
   tabBar: {
