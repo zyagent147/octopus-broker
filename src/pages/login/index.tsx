@@ -10,16 +10,24 @@ const LoginPage: FC = () => {
   const [loading, setLoading] = useState(false)
   const login = useUserStore((state) => state.login)
 
-  // 检测是否为开发环境
-  const isDev = process.env.NODE_ENV === 'development' || !Taro.getEnv()
-
   const handleLogin = async () => {
     if (loading) return
 
     setLoading(true)
 
     try {
-      // 获取微信登录 code
+      // 检测运行环境
+      const env = Taro.getEnv()
+      console.log('当前运行环境:', env)
+
+      // 如果是H5环境，使用开发模式登录
+      if (env === 'WEB' || env === 'WEBVIEW') {
+        console.log('H5环境，使用开发模式登录')
+        await handleDevLogin()
+        return
+      }
+
+      // 微信小程序环境，使用真实登录
       const { code } = await Taro.login()
 
       if (!code) {
@@ -27,12 +35,16 @@ const LoginPage: FC = () => {
         return
       }
 
+      console.log('获取到微信code:', code)
+
       // 调用后端登录接口
       const result = await Network.request<{ code: number; msg: string; data: { token: string; user: any } }>({
         url: '/api/auth/login',
         method: 'POST',
         data: { code },
       })
+
+      console.log('登录响应:', result.data)
 
       const { token, user } = result.data
 
@@ -109,7 +121,7 @@ const LoginPage: FC = () => {
       <Text className="block text-base text-gray-500 mb-12">轻量高效的房产经纪人办公工具</Text>
 
       {/* 登录按钮 */}
-      <View className="w-full max-w-sm space-y-3">
+      <View className="w-full max-w-sm">
         <Button
           className="w-full h-12 bg-blue-500 rounded-xl flex items-center justify-center"
           onClick={handleLogin}
@@ -117,17 +129,6 @@ const LoginPage: FC = () => {
         >
           <Text className="text-white text-lg font-medium">
             {loading ? '登录中...' : '微信一键登录'}
-          </Text>
-        </Button>
-
-        {/* 开发模式登录按钮 */}
-        <Button
-          className="w-full h-12 bg-gray-500 rounded-xl flex items-center justify-center"
-          onClick={handleDevLogin}
-          disabled={loading}
-        >
-          <Text className="text-white text-base font-medium">
-            开发模式登录（无需AppID）
           </Text>
         </Button>
       </View>
