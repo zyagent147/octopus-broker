@@ -1,13 +1,13 @@
 {
   "miniprogramRoot": "./dist",
-  "projectname": "coze-mini-program",
-  "description": "test",
-  "appid": "touristappid",
+  "projectname": "zhangyu-broker",
+  "description": "章鱼经纪人 - 房产经纪人办公工具",
+  "appid": "wxd244b605ba704aab",
   "setting": {
-    "urlCheck": true,
+    "urlCheck": false,
     "es6": false,
     "enhance": false,
-    "compileHotReLoad": false,
+    "compileHotReLoad": true,
     "postcss": false,
     "minified": false
   },
