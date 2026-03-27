@@ -49,11 +49,11 @@ export class AuthService {
         throw new UnauthorizedException('获取用户 openid 失败')
       }
 
-      // 查询或创建用户
+      // 查询或创建用户（不依赖 role 列）
       const client = getSupabaseClient()
       let { data: user, error } = await client
         .from('users')
-        .select('*')
+        .select('id, openid, nickname, avatar, phone, created_at')
         .eq('openid', openid)
         .maybeSingle()
 
@@ -62,12 +62,12 @@ export class AuthService {
         throw new UnauthorizedException('查询用户失败')
       }
 
-      // 如果用户不存在，创建新用户
+      // 如果用户不存在，创建新用户（不设置 role 字段）
       if (!user) {
         const { data: newUser, error: createError } = await client
           .from('users')
           .insert({ openid })
-          .select()
+          .select('id, openid, nickname, avatar, phone, created_at')
           .single()
 
         if (createError) {
@@ -77,11 +77,11 @@ export class AuthService {
         user = newUser
       }
 
-      // 生成 JWT token
+      // 生成 JWT token（默认经纪人角色）
       const payload: UserPayload = {
         id: user.id,
         openid: user.openid,
-        role: user.role || 'broker',
+        role: 'broker',
       }
 
       const token = this.jwtService.sign(payload)
@@ -94,7 +94,7 @@ export class AuthService {
           nickname: user.nickname,
           avatar: user.avatar,
           phone: user.phone,
-          role: user.role || 'broker',
+          role: 'broker',
         },
       }
     } catch (error) {
@@ -112,10 +112,10 @@ export class AuthService {
     // 使用固定的测试 openid
     const devOpenid = 'dev-test-user-001'
     
-    // 查询或创建测试用户
+    // 查询或创建测试用户（不依赖 role 列）
     let { data: user, error } = await client
       .from('users')
-      .select('*')
+      .select('id, openid, nickname, avatar, phone, created_at')
       .eq('openid', devOpenid)
       .maybeSingle()
 
@@ -124,16 +124,15 @@ export class AuthService {
       throw new UnauthorizedException('查询测试用户失败')
     }
 
-    // 如果用户不存在，创建测试用户（设为管理员）
+    // 如果用户不存在，创建测试用户（不设置 role 字段）
     if (!user) {
       const { data: newUser, error: createError } = await client
         .from('users')
         .insert({ 
           openid: devOpenid,
           nickname: '测试管理员',
-          role: 'admin',
         })
-        .select()
+        .select('id, openid, nickname, avatar, phone, created_at')
         .single()
 
       if (createError) {
@@ -143,11 +142,11 @@ export class AuthService {
       user = newUser
     }
 
-    // 生成 JWT token
+    // 生成 JWT token（默认管理员角色）
     const payload: UserPayload = {
       id: user.id,
       openid: user.openid,
-      role: user.role || 'admin',
+      role: 'admin',
     }
 
     const token = this.jwtService.sign(payload)
@@ -160,7 +159,7 @@ export class AuthService {
         nickname: user.nickname,
         avatar: user.avatar,
         phone: user.phone,
-        role: user.role || 'admin',
+        role: 'admin',
       },
     }
   }
