@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { Network } from '@/network'
 import { 
-  MapPin, House, Pencil, Trash2, FileText, Star
+  MapPin, House, Pencil, Trash2, FileText, Star, Plus, DollarSign, Phone, Calendar, Check
 } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,21 +23,42 @@ interface Property {
   updated_at: string | null
 }
 
+interface RentBill {
+  id: string
+  tenant_name: string | null
+  tenant_phone: string | null
+  amount: number
+  payment_cycle: 'monthly' | 'quarterly' | 'custom'
+  custom_days: number | null
+  bill_date: number
+  next_due_date: string
+  status: 'pending' | 'paid' | 'overdue'
+  created_at: string
+}
+
 const statusConfig = {
   available: { label: '空置', variant: 'default' as const, color: '#10b981' },
-  rented: { label: '已租', variant: 'secondary' as const, color: '#6b7280' },
+  rented: { label: '已租', variant: 'secondary' as const, color: '#3b82f6' },
   sold: { label: '已售', variant: 'outline' as const, color: '#9ca3af' },
+}
+
+const paymentCycleConfig = {
+  monthly: '月付',
+  quarterly: '季付',
+  custom: '自定义',
 }
 
 export default function PropertyDetailPage() {
   const router = useRouter()
   const { id } = router.params
   const [property, setProperty] = useState<Property | null>(null)
+  const [bills, setBills] = useState<RentBill[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (id) {
       fetchProperty()
+      fetchBills()
     }
   }, [id])
 
@@ -49,13 +70,25 @@ export default function PropertyDetailPage() {
         method: 'GET',
       })
       
-      console.log('房源详情响应:', res.data)
       setProperty(res.data.data)
     } catch (error) {
       console.error('获取房源详情失败:', error)
       Taro.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchBills = async () => {
+    try {
+      const res = await Network.request({
+        url: `/api/rent-bills/property/${id}`,
+        method: 'GET',
+      })
+      
+      setBills(res.data.data || [])
+    } catch (error) {
+      console.error('获取账单列表失败:', error)
     }
   }
 
@@ -77,7 +110,7 @@ export default function PropertyDetailPage() {
         })
         Taro.showToast({ title: '删除成功', icon: 'success' })
         setTimeout(() => Taro.navigateBack(), 1500)
-      } catch (error) {
+      } catch {
         Taro.showToast({ title: '删除失败', icon: 'none' })
       }
     }
@@ -85,6 +118,50 @@ export default function PropertyDetailPage() {
 
   const handleGenerateCopy = () => {
     Taro.navigateTo({ url: `/pages/properties/ai-copy/index?id=${id}` })
+  }
+
+  const handleAddBill = () => {
+    Taro.navigateTo({ url: `/pages/rent-bills/form/index?propertyId=${id}` })
+  }
+
+  const handleEditBill = (billId: string) => {
+    Taro.navigateTo({ url: `/pages/rent-bills/form/index?propertyId=${id}&id=${billId}` })
+  }
+
+  const handleMarkPaid = async (billId: string) => {
+    try {
+      const res = await Network.request({
+        url: `/api/rent-bills/${billId}/mark-paid`,
+        method: 'POST',
+      })
+      
+      if (res.data.code === 200) {
+        Taro.showToast({ title: '已标记收款', icon: 'success' })
+        fetchBills()
+      } else {
+        Taro.showToast({ title: res.data.msg || '操作失败', icon: 'none' })
+      }
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }
+
+  const handleCall = (phone: string) => {
+    Taro.makePhoneCall({ phoneNumber: phone })
+  }
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
+  const getDaysUntilDue = (dueDate: string) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const due = new Date(dueDate)
+    due.setHours(0, 0, 0, 0)
+    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return diff
   }
 
   if (loading) {
@@ -155,6 +232,103 @@ export default function PropertyDetailPage() {
               </View>
             </CardContent>
           </Card>
+
+          {/* 应收账单 - 仅已租房源显示 */}
+          {property.status === 'rented' && (
+            <Card>
+              <CardHeader>
+                <View className="flex items-center justify-between">
+                  <CardTitle>应收账单</CardTitle>
+                  <Button size="sm" className="bg-sky-500 text-white" onClick={handleAddBill}>
+                    <Plus size={16} color="#fff" />
+                    <Text className="text-white ml-1">添加</Text>
+                  </Button>
+                </View>
+              </CardHeader>
+              <CardContent>
+                {bills.length === 0 ? (
+                  <View className="py-4 text-center">
+                    <Text className="text-gray-400">暂无账单记录</Text>
+                  </View>
+                ) : (
+                  <View className="space-y-3">
+                    {bills.map(bill => {
+                      const daysUntil = getDaysUntilDue(bill.next_due_date)
+                      const isOverdue = daysUntil < 0
+                      const isUpcoming = daysUntil >= 0 && daysUntil <= 3
+
+                      return (
+                        <View 
+                          key={bill.id} 
+                          className={`p-3 rounded-xl border ${isOverdue ? 'border-red-200 bg-red-50' : isUpcoming ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}
+                        >
+                          <View className="flex items-center justify-between mb-2">
+                            <View className="flex items-center gap-2">
+                              <DollarSign size={16} color={isOverdue ? '#ef4444' : isUpcoming ? '#f97316' : '#3b82f6'} />
+                              <Text className="font-semibold text-gray-900">
+                                ¥{bill.amount.toLocaleString()}
+                              </Text>
+                              <Badge variant="outline" className="text-xs">
+                                {paymentCycleConfig[bill.payment_cycle]}
+                              </Badge>
+                            </View>
+                            {isOverdue && (
+                              <Badge className="bg-red-500 text-white text-xs">已逾期</Badge>
+                            )}
+                            {isUpcoming && (
+                              <Badge className="bg-orange-500 text-white text-xs">{daysUntil}天后</Badge>
+                            )}
+                          </View>
+
+                          {bill.tenant_name && (
+                            <View className="flex items-center gap-2 mb-1">
+                              <Text className="text-sm text-gray-500">租客：</Text>
+                              <Text className="text-sm text-gray-900">{bill.tenant_name}</Text>
+                              {bill.tenant_phone && (
+                                <View 
+                                  className="p-1 rounded-full bg-green-100"
+                                  onClick={() => handleCall(bill.tenant_phone!)}
+                                >
+                                  <Phone size={14} color="#22c55e" />
+                                </View>
+                              )}
+                            </View>
+                          )}
+
+                          <View className="flex items-center gap-2 mb-2">
+                            <Calendar size={14} color="#999" />
+                            <Text className="text-sm text-gray-500">
+                              账单日：每月{bill.bill_date}号
+                            </Text>
+                            <Text className="text-sm text-gray-500">|</Text>
+                            <Text className="text-sm text-gray-500">
+                              下次：{formatDate(bill.next_due_date)}
+                            </Text>
+                          </View>
+
+                          <View className="flex gap-2">
+                            <View 
+                              className="flex-1 py-2 rounded-lg bg-green-500 flex items-center justify-center"
+                              onClick={() => handleMarkPaid(bill.id)}
+                            >
+                              <Check size={14} color="#fff" />
+                              <Text className="text-white text-sm ml-1">确认收款</Text>
+                            </View>
+                            <View 
+                              className="px-3 py-2 rounded-lg bg-gray-200"
+                              onClick={() => handleEditBill(bill.id)}
+                            >
+                              <Pencil size={14} color="#666" />
+                            </View>
+                          </View>
+                        </View>
+                      )
+                    })}
+                  </View>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* 详细信息 */}
           <Card>

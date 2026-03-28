@@ -9,6 +9,7 @@ import { PropertiesModule } from './modules/properties/properties.module'
 import { AiModule } from './modules/ai/ai.module'
 import { ServicesModule } from './modules/services/services.module'
 import { ProvidersModule } from './modules/providers/providers.module'
+import { RentBillsModule } from './modules/rent-bills/rent-bills.module'
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { ProvidersModule } from './modules/providers/providers.module'
     PropertiesModule, 
     AiModule, 
     ServicesModule,
-    ProvidersModule
+    ProvidersModule,
+    RentBillsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
