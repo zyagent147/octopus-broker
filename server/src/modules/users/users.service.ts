@@ -32,17 +32,15 @@ export class UsersService {
         this.logger.error(`查询新增客户数失败: ${customersError.message}`)
       }
 
-      // 查询本月成交客户数
-      const { count: monthCompleted, error: completedError } = await client
-        .from('customers')
+      // 查询在租房源数（status = 'rented'）
+      const { count: monthRentedProperties, error: rentedError } = await client
+        .from('properties')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('status', 'completed')
-        .gte('updated_at', firstDayStr)
-        .lte('updated_at', lastDayStr)
+        .eq('status', 'rented')
 
-      if (completedError) {
-        this.logger.error(`查询成交客户数失败: ${completedError.message}`)
+      if (rentedError) {
+        this.logger.error(`查询在租房源数失败: ${rentedError.message}`)
       }
 
       // 查询本月新增房源数
@@ -59,14 +57,14 @@ export class UsersService {
 
       return {
         monthNewCustomers: monthNewCustomers || 0,
-        monthCompleted: monthCompleted || 0,
+        monthRentedProperties: monthRentedProperties || 0,
         monthNewProperties: monthNewProperties || 0,
       }
     } catch (error: any) {
       this.logger.error(`获取统计数据失败: ${error.message}`)
       return {
         monthNewCustomers: 0,
-        monthCompleted: 0,
+        monthRentedProperties: 0,
         monthNewProperties: 0,
       }
     }

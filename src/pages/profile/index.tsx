@@ -13,7 +13,7 @@ const ProfilePage: FC = () => {
   const logout = useUserStore((state) => state.logout)
   const [stats, setStats] = useState({
     monthNewCustomers: 0,
-    monthCompleted: 0,
+    monthRentedProperties: 0,
     monthNewProperties: 0,
   })
 
@@ -100,9 +100,9 @@ const ProfilePage: FC = () => {
               <View className="w-px bg-gray-200" />
               <View className="text-center">
                 <Text className="block text-2xl font-bold text-green-500">
-                  {stats.monthCompleted}
+                  {stats.monthRentedProperties}
                 </Text>
-                <Text className="block text-xs text-gray-500 mt-1">成交客户</Text>
+                <Text className="block text-xs text-gray-500 mt-1">在租房源</Text>
               </View>
               <View className="w-px bg-gray-200" />
               <View className="text-center">
