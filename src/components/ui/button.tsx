@@ -45,13 +45,14 @@ export interface ButtonProps
 
 const Button = React.forwardRef<React.ElementRef<typeof View>, ButtonProps>(
   ({ className, variant, size, asChild = false, disabled, onClick, ...props }, ref) => {
-    const tabIndex = (props as { tabIndex?: number }).tabIndex ?? (disabled ? -1 : 0)
-    
-    // 处理点击事件 - 小程序端使用 onTap，H5 端使用 onClick
+    // 处理点击事件
     const handleClick = () => {
       if (disabled || !onClick) return
       onClick()
     }
+
+    // 判断运行环境
+    const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
     return (
       <View
@@ -60,14 +61,13 @@ const Button = React.forwardRef<React.ElementRef<typeof View>, ButtonProps>(
           disabled && "opacity-50 pointer-events-none"
         )}
         ref={ref}
-        {...({ tabIndex } as { tabIndex?: number })}
         hoverClass={
           disabled
             ? undefined
             : "border-ring ring-2 ring-ring ring-offset-2 ring-offset-background"
         }
-        onTap={handleClick}
-        onClick={Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? undefined : handleClick}
+        // 小程序端使用 onTap，H5 端使用 onClick
+        {...(isWeapp ? { onTap: handleClick } : { onClick: handleClick })}
         {...props}
       />
     )
