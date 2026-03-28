@@ -212,7 +212,18 @@ const CustomersPage: FC = () => {
       </View>
 
       {/* 底部统计 */}
-      <View className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
+      <View 
+        style={{
+          position: 'fixed',
+          bottom: '50px',
+          left: 0,
+          right: 0,
+          backgroundColor: '#fff',
+          borderTop: '1px solid #e5e7eb',
+          padding: '8px 16px',
+          zIndex: 50,
+        }}
+      >
         <View className="flex justify-around">
           <View className="text-center">
             <Text className="block text-lg font-bold text-blue-500">

@@ -1,5 +1,6 @@
 import * as React from "react"
 import { View } from "@tarojs/components"
+import Taro from '@tarojs/taro'
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
@@ -39,11 +40,19 @@ export interface ButtonProps
   asChild?: boolean
   disabled?: boolean
   className?: string
+  onClick?: () => void
 }
 
 const Button = React.forwardRef<React.ElementRef<typeof View>, ButtonProps>(
-  ({ className, variant, size, asChild = false, disabled, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, disabled, onClick, ...props }, ref) => {
     const tabIndex = (props as { tabIndex?: number }).tabIndex ?? (disabled ? -1 : 0)
+    
+    // 处理点击事件 - 小程序端使用 onTap，H5 端使用 onClick
+    const handleClick = () => {
+      if (disabled || !onClick) return
+      onClick()
+    }
+
     return (
       <View
         className={cn(
@@ -57,6 +66,8 @@ const Button = React.forwardRef<React.ElementRef<typeof View>, ButtonProps>(
             ? undefined
             : "border-ring ring-2 ring-ring ring-offset-2 ring-offset-background"
         }
+        onTap={handleClick}
+        onClick={Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? undefined : handleClick}
         {...props}
       />
     )

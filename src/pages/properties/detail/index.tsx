@@ -3,8 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { Network } from '@/network'
 import { 
-  MapPin, House, Phone, 
-  Pencil, Trash2, FileText, Star
+  MapPin, House, Pencil, Trash2, FileText, Star
 } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,36 +11,22 @@ import { Badge } from '@/components/ui/badge'
 
 interface Property {
   id: string
-  name: string
+  community: string
+  building: string | null
   address: string
-  property_type: 'apartment' | 'house' | 'villa' | 'shop'
-  area?: number
-  price?: number
-  layout?: string
-  floor?: string
-  orientation?: string
-  decoration?: string
+  layout: string | null
+  area: number | null
+  price: number | null
   status: 'available' | 'rented' | 'sold'
-  cover_image?: string
-  images?: string[]
-  tags?: string[]
-  description?: string
-  contact_name?: string
-  contact_phone?: string
+  images: string[]
   created_at: string
+  updated_at: string | null
 }
 
 const statusConfig = {
   available: { label: '空置', variant: 'default' as const, color: '#10b981' },
   rented: { label: '已租', variant: 'secondary' as const, color: '#6b7280' },
   sold: { label: '已售', variant: 'outline' as const, color: '#9ca3af' },
-}
-
-const propertyTypeConfig = {
-  apartment: '公寓',
-  house: '住宅',
-  villa: '别墅',
-  shop: '商铺',
 }
 
 export default function PropertyDetailPage() {
@@ -98,12 +83,6 @@ export default function PropertyDetailPage() {
     }
   }
 
-  const handleCall = () => {
-    if (property?.contact_phone) {
-      Taro.makePhoneCall({ phoneNumber: property.contact_phone })
-    }
-  }
-
   const handleGenerateCopy = () => {
     Taro.navigateTo({ url: `/pages/properties/ai-copy/index?id=${id}` })
   }
@@ -127,11 +106,11 @@ export default function PropertyDetailPage() {
   return (
     <View className="flex flex-col h-full bg-gray-50">
       <ScrollView scrollY className="flex-1">
-        {/* 房源图片轮播 */}
+        {/* 房源图片 */}
         <View className="relative">
-          {property.cover_image ? (
+          {property.images && property.images.length > 0 ? (
             <Image 
-              src={property.cover_image} 
+              src={property.images[0]} 
               className="w-full h-64"
               mode="aspectFill"
             />
@@ -155,7 +134,7 @@ export default function PropertyDetailPage() {
           <Card>
             <CardContent className="p-4">
               <Text className="block text-xl font-bold text-gray-900 mb-2">
-                {property.name}
+                {property.community}{property.building ? ` ${property.building}` : ''}
               </Text>
               
               <View className="flex items-center gap-1 mb-3">
@@ -171,22 +150,9 @@ export default function PropertyDetailPage() {
               </View>
 
               <View className="flex flex-wrap gap-2">
-                <Badge variant="outline">{propertyTypeConfig[property.property_type]}</Badge>
                 {property.area && <Badge variant="outline">{property.area}㎡</Badge>}
                 {property.layout && <Badge variant="outline">{property.layout}</Badge>}
-                {property.floor && <Badge variant="outline">{property.floor}</Badge>}
-                {property.orientation && <Badge variant="outline">{property.orientation}</Badge>}
               </View>
-
-              {property.tags && property.tags.length > 0 && (
-                <View className="flex flex-wrap gap-2 mt-3">
-                  {property.tags.map((tag, index) => (
-                    <View key={index} className="px-2 py-1 bg-sky-50 rounded text-xs text-sky-600">
-                      {tag}
-                    </View>
-                  ))}
-                </View>
-              )}
             </CardContent>
           </Card>
 
@@ -197,16 +163,16 @@ export default function PropertyDetailPage() {
             </CardHeader>
             <CardContent>
               <View className="space-y-2">
-                {property.decoration && (
+                <View className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <Text className="text-gray-500">小区名称</Text>
+                  <Text className="text-gray-900">{property.community}</Text>
+                </View>
+                {property.building && (
                   <View className="flex items-center justify-between py-2 border-b border-gray-100">
-                    <Text className="text-gray-500">装修情况</Text>
-                    <Text className="text-gray-900">{property.decoration}</Text>
+                    <Text className="text-gray-500">楼栋信息</Text>
+                    <Text className="text-gray-900">{property.building}</Text>
                   </View>
                 )}
-                <View className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <Text className="text-gray-500">房源类型</Text>
-                  <Text className="text-gray-900">{propertyTypeConfig[property.property_type]}</Text>
-                </View>
                 <View className="flex items-center justify-between py-2">
                   <Text className="text-gray-500">录入时间</Text>
                   <Text className="text-gray-900">
@@ -216,45 +182,6 @@ export default function PropertyDetailPage() {
               </View>
             </CardContent>
           </Card>
-
-          {/* 房源描述 */}
-          {property.description && (
-            <Card>
-              <CardHeader>
-                <CardTitle>房源描述</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Text className="text-sm text-gray-600 leading-relaxed">
-                  {property.description}
-                </Text>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 联系信息 */}
-          {property.contact_name && (
-            <Card>
-              <CardHeader>
-                <CardTitle>联系信息</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <View className="flex items-center justify-between">
-                  <View>
-                    <Text className="text-gray-900">{property.contact_name}</Text>
-                    {property.contact_phone && (
-                      <Text className="text-sm text-gray-500 mt-1">{property.contact_phone}</Text>
-                    )}
-                  </View>
-                  {property.contact_phone && (
-                    <Button size="sm" onClick={handleCall} className="bg-sky-500 text-white">
-                      <Phone size={16} color="#fff" className="mr-1" />
-                      <Text>拨打电话</Text>
-                    </Button>
-                  )}
-                </View>
-              </CardContent>
-            </Card>
-          )}
 
           {/* AI文案生成 */}
           <Card onClick={handleGenerateCopy}>
@@ -291,12 +218,12 @@ export default function PropertyDetailPage() {
         }}
       >
         <Button variant="outline" className="flex-1" onClick={handleDelete}>
-          <Trash2 size={18} color="#ef4444" className="mr-2" />
-          <Text className="text-red-500">删除</Text>
+          <Trash2 size={18} color="#ef4444" />
+          <Text className="text-red-500 ml-2">删除</Text>
         </Button>
         <Button className="flex-1 bg-sky-500 text-white" onClick={handleEdit}>
-          <Pencil size={18} color="#fff" className="mr-2" />
-          <Text>编辑</Text>
+          <Pencil size={18} color="#fff" />
+          <Text className="text-white ml-2">编辑</Text>
         </Button>
       </View>
     </View>

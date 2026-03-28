@@ -9,15 +9,14 @@ import { Badge } from '@/components/ui/badge'
 
 interface Property {
   id: string
-  name: string
+  community: string
+  building: string | null
   address: string
-  property_type: 'apartment' | 'house' | 'villa' | 'shop'
+  layout: string | null
   area?: number
   price?: number
-  layout?: string
   status: 'available' | 'rented' | 'sold'
-  cover_image?: string
-  tags?: string[]
+  images: string[]
   created_at: string
 }
 
@@ -60,7 +59,7 @@ export default function PropertiesPage() {
   })
 
   const filteredProperties = properties.filter(p => 
-    p.name.includes(searchKeyword) || 
+    p.community.includes(searchKeyword) || 
     p.address.includes(searchKeyword)
   )
 
@@ -119,9 +118,9 @@ export default function PropertiesPage() {
                   <View className="flex gap-3">
                     {/* 房源图片 */}
                     <View className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      {property.cover_image ? (
+                      {property.images && property.images.length > 0 ? (
                         <Image 
-                          src={property.cover_image} 
+                          src={property.images[0]} 
                           className="w-full h-full object-cover"
                           mode="aspectFill"
                         />
@@ -136,7 +135,7 @@ export default function PropertiesPage() {
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center justify-between mb-2">
                         <Text className="block text-base font-semibold text-gray-900 truncate flex-1">
-                          {property.name}
+                          {property.community}{property.building ? ` ${property.building}` : ''}
                         </Text>
                         <Badge variant={statusConfig[property.status].variant}>
                           {statusConfig[property.status].label}
@@ -161,16 +160,6 @@ export default function PropertiesPage() {
                           <Text>{property.layout}</Text>
                         )}
                       </View>
-
-                      {property.tags && property.tags.length > 0 && (
-                        <View className="flex flex-wrap gap-1 mt-2">
-                          {property.tags.slice(0, 3).map((tag, index) => (
-                            <View key={index} className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                              {tag}
-                            </View>
-                          ))}
-                        </View>
-                      )}
                     </View>
 
                     {/* 编辑按钮 */}
