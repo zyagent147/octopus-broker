@@ -19,6 +19,33 @@ export class PropertiesService {
   private readonly logger = new Logger(PropertiesService.name)
 
   /**
+   * 解析 images 字段（数据库存储为 JSON 字符串）
+   */
+  private parseImages(images: any): string[] {
+    if (!images) return []
+    if (Array.isArray(images)) return images
+    if (typeof images === 'string') {
+      try {
+        const parsed = JSON.parse(images)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  /**
+   * 格式化房源数据
+   */
+  private formatProperty(property: any) {
+    return {
+      ...property,
+      images: this.parseImages(property.images),
+    }
+  }
+
+  /**
    * 获取房源列表
    */
   async getProperties(userId: string) {
@@ -35,7 +62,7 @@ export class PropertiesService {
       throw new Error('查询房源列表失败')
     }
 
-    return data
+    return data.map(p => this.formatProperty(p))
   }
 
   /**
@@ -60,7 +87,7 @@ export class PropertiesService {
       throw new NotFoundException('房源不存在')
     }
 
-    return data
+    return this.formatProperty(data)
   }
 
   /**
@@ -80,7 +107,7 @@ export class PropertiesService {
         area: dto.area || null,
         price: dto.price || null,
         status: dto.status || 'available',
-        images: dto.images || [],
+        images: dto.images && dto.images.length > 0 ? JSON.stringify(dto.images) : null,
       })
       .select()
       .single()
@@ -90,7 +117,7 @@ export class PropertiesService {
       throw new Error('创建房源失败')
     }
 
-    return data
+    return this.formatProperty(data)
   }
 
   /**
@@ -110,7 +137,9 @@ export class PropertiesService {
     if (dto.area !== undefined) updateData.area = dto.area || null
     if (dto.price !== undefined) updateData.price = dto.price || null
     if (dto.status !== undefined) updateData.status = dto.status
-    if (dto.images !== undefined) updateData.images = dto.images || []
+    if (dto.images !== undefined) {
+      updateData.images = dto.images && dto.images.length > 0 ? JSON.stringify(dto.images) : null
+    }
 
     const { data, error } = await client
       .from('properties')
@@ -129,7 +158,7 @@ export class PropertiesService {
       throw new NotFoundException('房源不存在')
     }
 
-    return data
+    return this.formatProperty(data)
   }
 
   /**

@@ -91,16 +91,20 @@ export default function PropertyFormPage() {
           name: 'file',
         })
 
-        const data = uploadRes.data
-        if (data.code === 200 && data.data?.url) {
+        console.log('上传响应:', uploadRes)
+
+        // Network.uploadFile 返回的是解析后的 JSON 对象
+        // 后端返回格式: { code: 200, msg: '上传成功', data: { key, url } }
+        if (uploadRes.code === 200 && uploadRes.data?.url) {
           setForm(prev => ({
             ...prev,
-            images: [...prev.images, data.data.url],
+            images: [...prev.images, uploadRes.data.url],
           }))
         }
       }
 
       Taro.hideToast()
+      Taro.showToast({ title: '上传成功', icon: 'success' })
     } catch (error) {
       console.error('上传图片失败:', error)
       Taro.showToast({ title: '上传失败', icon: 'none' })
