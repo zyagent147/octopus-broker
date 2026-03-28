@@ -8,8 +8,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
 
-// 默认头像路径
-const DEFAULT_AVATAR = '/assets/章鱼经纪人.jpeg'
+// 默认头像 - 使用 import 导入
+// @ts-ignore
+import defaultAvatar from '@/assets/章鱼经纪人.jpeg'
 
 const ProfilePage: FC = () => {
   const user = useUserStore((state) => state.user)
@@ -71,7 +72,7 @@ const ProfilePage: FC = () => {
         <View className="flex items-center">
           <View className="w-16 h-16 bg-white rounded-full flex items-center justify-center overflow-hidden">
             <Image 
-              src={user?.avatar || DEFAULT_AVATAR} 
+              src={user?.avatar || defaultAvatar} 
               className="w-full h-full" 
               mode="aspectFill" 
             />

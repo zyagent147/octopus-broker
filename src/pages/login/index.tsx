@@ -5,8 +5,9 @@ import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
 
-// Logo 图片路径
-const LOGO_URL = '/assets/章鱼经纪人.jpeg'
+// Logo 图片 - 使用 import 导入
+// @ts-ignore
+import logoImage from '@/assets/章鱼经纪人.jpeg'
 
 const LoginPage: FC = () => {
   const [loading, setLoading] = useState(false)
@@ -127,7 +128,7 @@ const LoginPage: FC = () => {
       {/* Logo */}
       <View style={{ marginBottom: '48px' }}>
         <Image 
-          src={LOGO_URL}
+          src={logoImage}
           style={{ 
             width: '96px', 
             height: '96px', 
