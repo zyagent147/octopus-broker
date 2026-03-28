@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { Network } from '@/network'
 import { 
-  MapPin, House, Pencil, Trash2, FileText, Star, Plus, DollarSign, Phone, Calendar, Check
+  MapPin, House, Pencil, Trash2, Plus, DollarSign, Phone, Calendar, Check
 } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -70,7 +70,7 @@ export default function PropertyDetailPage() {
         method: 'GET',
       })
       
-      setProperty(res.data.data)
+      setProperty(res.data)
     } catch (error) {
       console.error('获取房源详情失败:', error)
       Taro.showToast({ title: '加载失败', icon: 'none' })
@@ -86,7 +86,7 @@ export default function PropertyDetailPage() {
         method: 'GET',
       })
       
-      setBills(res.data.data || [])
+      setBills(res.data || [])
     } catch (error) {
       console.error('获取账单列表失败:', error)
     }
@@ -116,10 +116,6 @@ export default function PropertyDetailPage() {
     }
   }
 
-  const handleGenerateCopy = () => {
-    Taro.navigateTo({ url: `/pages/properties/ai-copy/index?id=${id}` })
-  }
-
   const handleAddBill = () => {
     Taro.navigateTo({ url: `/pages/rent-bills/form/index?propertyId=${id}` })
   }
@@ -135,11 +131,11 @@ export default function PropertyDetailPage() {
         method: 'POST',
       })
       
-      if (res.data.code === 200) {
+      if (res.code === 200) {
         Taro.showToast({ title: '已标记收款', icon: 'success' })
         fetchBills()
       } else {
-        Taro.showToast({ title: res.data.msg || '操作失败', icon: 'none' })
+        Taro.showToast({ title: res.msg || '操作失败', icon: 'none' })
       }
     } catch {
       Taro.showToast({ title: '操作失败', icon: 'none' })
@@ -353,22 +349,6 @@ export default function PropertyDetailPage() {
                     {new Date(property.created_at).toLocaleDateString()}
                   </Text>
                 </View>
-              </View>
-            </CardContent>
-          </Card>
-
-          {/* AI文案生成 */}
-          <Card onClick={handleGenerateCopy}>
-            <CardContent className="p-4">
-              <View className="flex items-center gap-3">
-                <View className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center">
-                  <Star size={24} color="#fff" />
-                </View>
-                <View className="flex-1">
-                  <Text className="block font-semibold text-gray-900">AI智能文案</Text>
-                  <Text className="block text-sm text-gray-500">一键生成小红书推广文案</Text>
-                </View>
-                <FileText size={20} color="#999" />
               </View>
             </CardContent>
           </Card>

@@ -91,9 +91,11 @@ export default defineConfig<'vite'>(async (merge, _env) => {
     plugins: ['@tarojs/plugin-generator', ...buildMiniCIPluginConfig()],
     defineConstants: {
       PROJECT_DOMAIN: JSON.stringify(
-        process.env.PROJECT_DOMAIN ||
-          process.env.COZE_PROJECT_DOMAIN_DEFAULT ||
-          '',
+        isH5
+          ? '' // H5 开发模式使用 Vite proxy，不需要完整域名
+          : process.env.PROJECT_DOMAIN ||
+              process.env.COZE_PROJECT_DOMAIN_DEFAULT ||
+              '',
       ),
       TARO_ENV: JSON.stringify(process.env.TARO_ENV),
     },

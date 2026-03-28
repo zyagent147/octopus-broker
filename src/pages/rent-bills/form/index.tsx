@@ -66,7 +66,7 @@ export default function RentBillFormPage() {
         method: 'GET',
       })
       
-      const data = res.data.data
+      const data = res.data
       setForm({
         tenant_name: data.tenant_name || '',
         tenant_phone: data.tenant_phone || '',
@@ -146,11 +146,11 @@ export default function RentBillFormPage() {
 
       const res = await Network.request({ url, method, data })
       
-      if (res.data.code === 200) {
+      if (res.code === 200) {
         Taro.showToast({ title: isEdit ? '更新成功' : '创建成功', icon: 'success' })
         setTimeout(() => Taro.navigateBack(), 1500)
       } else {
-        Taro.showToast({ title: res.data.msg || '操作失败', icon: 'none' })
+        Taro.showToast({ title: res.msg || '操作失败', icon: 'none' })
       }
     } catch (error) {
       console.error('提交失败:', error)
