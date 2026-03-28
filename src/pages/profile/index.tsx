@@ -6,7 +6,10 @@ import { useUserStore } from '@/stores/user'
 import { Network } from '@/network'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
+import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
+
+// 默认头像路径
+const DEFAULT_AVATAR = '/assets/章鱼经纪人.jpeg'
 
 const ProfilePage: FC = () => {
   const user = useUserStore((state) => state.user)
@@ -67,11 +70,11 @@ const ProfilePage: FC = () => {
       <View className="bg-blue-500 pt-12 pb-8 px-4">
         <View className="flex items-center">
           <View className="w-16 h-16 bg-white rounded-full flex items-center justify-center overflow-hidden">
-            {user?.avatar ? (
-              <Image src={user.avatar} className="w-full h-full" mode="aspectFill" />
-            ) : (
-              <User size={32} color="#1890ff" />
-            )}
+            <Image 
+              src={user?.avatar || DEFAULT_AVATAR} 
+              className="w-full h-full" 
+              mode="aspectFill" 
+            />
           </View>
           <View className="ml-4 flex-1">
             <Text className="block text-white text-lg font-semibold">

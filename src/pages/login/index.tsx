@@ -1,9 +1,12 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import type { FC } from 'react'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
+
+// Logo 图片路径
+const LOGO_URL = '/assets/章鱼经纪人.jpeg'
 
 const LoginPage: FC = () => {
   const [loading, setLoading] = useState(false)
@@ -123,19 +126,15 @@ const LoginPage: FC = () => {
     >
       {/* Logo */}
       <View style={{ marginBottom: '48px' }}>
-        <View 
+        <Image 
+          src={LOGO_URL}
           style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
             width: '96px', 
             height: '96px', 
-            backgroundColor: '#3b82f6', 
             borderRadius: '24px' 
           }}
-        >
-          <Text style={{ fontSize: '48px' }}>🐙</Text>
-        </View>
+          mode="aspectFill"
+        />
       </View>
 
       {/* 标题 */}
