@@ -1,9 +1,0 @@
-/* app.wxss - 全局浅色极简样式 */
-page {
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: #f7f8fa;
-  color: #0a0f1e;
-  min-height: 100vh;
-  font-size: 28rpx;
-  -webkit-font-smoothing: antialiased;
-}

@@ -36,7 +36,7 @@ const App = ({ children }: PropsWithChildren) => {
 
     // 已登录且在登录页，跳转到首页
     if (isLoggedIn && currentPath === '/pages/login/index') {
-      Taro.switchTab({ url: '/pages/home/index' })
+      Taro.switchTab({ url: '/pages/customers/index' })
     }
   }
 
