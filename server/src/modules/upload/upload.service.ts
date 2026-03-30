@@ -4,15 +4,33 @@ import { S3Storage } from 'coze-coding-dev-sdk'
 @Injectable()
 export class UploadService {
   private storage: S3Storage
+  private useCustomCOS: boolean
 
   constructor() {
-    this.storage = new S3Storage({
-      endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-      accessKey: '',
-      secretKey: '',
-      bucketName: process.env.COZE_BUCKET_NAME,
-      region: 'cn-beijing',
-    })
+    // 检查是否使用自定义腾讯云 COS 配置
+    this.useCustomCOS = !!(process.env.COS_SECRET_ID && process.env.COS_SECRET_KEY)
+
+    if (this.useCustomCOS) {
+      // 使用微信云托管的腾讯云 COS
+      this.storage = new S3Storage({
+        endpointUrl: `https://cos.${process.env.COS_REGION || 'ap-shanghai'}.myqcloud.com`,
+        accessKey: process.env.COS_SECRET_ID || '',
+        secretKey: process.env.COS_SECRET_KEY || '',
+        bucketName: process.env.COS_BUCKET_NAME || '7072-prod-9gchot580b331407-1416950024',
+        region: process.env.COS_REGION || 'ap-shanghai',
+      })
+      console.log('📦 使用腾讯云 COS 存储:', process.env.COS_BUCKET_NAME)
+    } else {
+      // 使用 Coze 内置存储
+      this.storage = new S3Storage({
+        endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+        accessKey: '',
+        secretKey: '',
+        bucketName: process.env.COZE_BUCKET_NAME,
+        region: 'cn-beijing',
+      })
+      console.log('📦 使用 Coze 内置存储')
+    }
   }
 
   /**

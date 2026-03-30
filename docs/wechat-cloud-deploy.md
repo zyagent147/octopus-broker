@@ -5,27 +5,38 @@
 1. 已开通微信云托管服务
 2. 已创建云托管环境（环境ID: `prod-9gchot580b331407`）
 3. 已创建云托管服务（服务名: `express-xhvf`）
+4. 已开通腾讯云 COS 对象存储（桶名: `7072-prod-9gchot580b331407-1416950024`）
 
 ## 🚀 部署步骤
 
-### 1. 配置环境变量
+### 1. 获取腾讯云 API 密钥
+
+1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/cam/capi)
+2. 访问「访问管理」→「访问密钥」→「API密钥管理」
+3. 创建密钥，记录 `SecretId` 和 `SecretKey`
+
+### 2. 配置环境变量
 
 在微信云托管控制台配置以下环境变量：
 
 ```bash
-# JWT 密钥
-JWT_SECRET=your-jwt-secret-key
+# 微信小程序配置
+WX_APP_ID=wxd244b605ba704aab
+WX_APP_SECRET=ca31d883d8f0587be93e9a10a8b8b85d
 
-# Supabase 数据库配置
-SUPABASE_URL=your-supabase-url
-SUPABASE_ANON_KEY=your-supabase-anon-key
+# JWT 配置
+JWT_SECRET=zhangyu-broker-jwt-secret-2024-production
+JWT_EXPIRES_IN=30d
 
-# 对象存储配置
-S3_ACCESS_KEY=your-s3-access-key
-S3_SECRET_KEY=your-s3-secret-key
-S3_BUCKET=your-s3-bucket
-S3_REGION=your-s3-region
-S3_ENDPOINT=your-s3-endpoint
+# 腾讯云 COS 对象存储配置
+COS_SECRET_ID=your-secret-id-here
+COS_SECRET_KEY=your-secret-key-here
+COS_BUCKET_NAME=7072-prod-9gchot580b331407-1416950024
+COS_REGION=ap-shanghai
+
+# Supabase 数据库配置（系统自动注入，无需手动配置）
+# COZE_SUPABASE_URL=xxx
+# COZE_SUPABASE_ANON_KEY=xxx
 ```
 
 ### 2. 构建并推送镜像
