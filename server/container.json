@@ -27,7 +27,7 @@
   "healthCheckPath": "/api/hello",
   "healthCheckHeaders": [],
   "build": {
-    "dockerfile": "Dockerfile",
+    "dockerfile": "server/Dockerfile",
     "context": ".",
     "args": {}
   },

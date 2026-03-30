@@ -1,84 +1,44 @@
 # 微信云托管部署配置 - 章鱼经纪人
-# 多阶段构建，优化镜像大小
+# 适用于构建上下文为项目根目录的情况
+# 在云托管控制台配置：
+#   Dockerfile路径: server/Dockerfile
+#   构建上下文: . (项目根目录)
 
-# ================================
-# 阶段1: 安装依赖
-# ================================
-FROM node:20-alpine AS deps
+FROM node:20-alpine
 
+# 设置工作目录
 WORKDIR /app
 
-# 安装 pnpm 和 Python（用于 coze_workload_identity）
-RUN apk add --no-cache python3 py3-pip && \
-    corepack enable && \
-    corepack prepare pnpm@latest --activate
-
-# 复制根目录的 package 文件
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY server/package.json ./server/
-
-# 安装依赖
-RUN pnpm install --frozen-lockfile
-
-# ================================
-# 阶段2: 构建
-# ================================
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# 安装 pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# 复制依赖
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/server/node_modules ./server/node_modules
-
-# 复制源代码
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY server/ ./server/
-COPY tsconfig.json ./
-
-# 构建
-WORKDIR /app/server
-RUN pnpm build
-
-# ================================
-# 阶段3: 生产镜像
-# ================================
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-# 安装 Python 和必要工具（用于 coze_workload_identity）
-RUN apk add --no-cache python3 py3-pip curl && \
-    pip3 install --no-cache-dir --break-system-packages coze-workload-identity
+# 安装系统依赖和 pnpm
+RUN apk add --no-cache python3 py3-pip curl bash && \
+    pip3 install --no-cache-dir --break-system-packages coze-workload-identity || true && \
+    corepack enable && corepack prepare pnpm@latest --activate
 
 # 设置环境变量
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# 创建非 root 用户
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nestjs
+# ===== 从项目根目录复制文件 =====
+# 复制 package 文件（根目录和 server 目录）
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY server/package.json ./server/
 
-# 复制构建产物
-COPY --from=builder /app/server/dist ./dist
-COPY --from=builder /app/server/node_modules ./node_modules
-COPY --from=builder /app/server/package.json ./
+# 安装所有依赖
+RUN pnpm install --frozen-lockfile
 
-# 设置权限
-RUN chown -R nestjs:nodejs /app
+# 复制源代码和配置
+COPY server/ ./server/
+COPY tsconfig.json ./
 
-# 切换用户
-USER nestjs
+# 构建项目
+WORKDIR /app/server
+RUN pnpm build
+
+# 删除开发依赖，只保留生产依赖
+RUN pnpm prune --prod
 
 # 暴露端口
 EXPOSE 3000
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:3000/api/hello || exit 1
 
 # 启动服务
 CMD ["node", "dist/main.js"]
