@@ -1,0 +1,38 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/client/client",
+    "pages/client-add/client-add",
+    "pages/client-detail/client-detail",
+    "pages/house/house",
+    "pages/house-detail/house-detail",
+    "pages/house-add/house-add",
+    "pages/services/services",
+    "pages/reminders/reminders",
+    "pages/add-record/add-record",
+    "pages/my/my"
+  ],
+  "window": {
+    "navigationBarTitleText": "章鱼经纪人",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f7f8fa",
+    "enablePullDownRefresh": true
+  },
+  "tabBar": {
+    "color": "#9ca3af",
+    "selectedColor": "#1e3a8a",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "首页" },
+      { "pagePath": "pages/client/client", "text": "客户" },
+      { "pagePath": "pages/house/house", "text": "房源" },
+      { "pagePath": "pages/services/services", "text": "服务" },
+      { "pagePath": "pages/my/my", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

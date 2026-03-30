@@ -1,5 +1,6 @@
 export default defineAppConfig({
   pages: [
+    'pages/home/index',
     'pages/login/index',
     'pages/customers/index',
     'pages/customers/detail/index',
@@ -20,28 +21,35 @@ export default defineAppConfig({
     navigationBarBackgroundColor: '#ffffff',
     navigationBarTitleText: '章鱼经纪人',
     navigationBarTextStyle: 'black',
+    backgroundColor: '#f7f8fa',
   },
   tabBar: {
-    color: '#8c8c8c',
-    selectedColor: '#1890ff',
+    color: '#9ca3af',
+    selectedColor: '#1e3a8a',
     backgroundColor: '#ffffff',
-    borderStyle: 'black',
+    borderStyle: 'white',
     list: [
       {
+        pagePath: 'pages/home/index',
+        text: '首页',
+        iconPath: './assets/tabbar/home.png',
+        selectedIconPath: './assets/tabbar/home-active.png',
+      },
+      {
         pagePath: 'pages/customers/index',
-        text: '客户管理',
+        text: '客户',
         iconPath: './assets/tabbar/users.png',
         selectedIconPath: './assets/tabbar/users-active.png',
       },
       {
         pagePath: 'pages/properties/index',
-        text: '房源管理',
-        iconPath: './assets/tabbar/home.png',
-        selectedIconPath: './assets/tabbar/home-active.png',
+        text: '房源',
+        iconPath: './assets/tabbar/building.png',
+        selectedIconPath: './assets/tabbar/building-active.png',
       },
       {
         pagePath: 'pages/services/index',
-        text: '生活服务',
+        text: '服务',
         iconPath: './assets/tabbar/heart.png',
         selectedIconPath: './assets/tabbar/heart-active.png',
       },
@@ -53,4 +61,7 @@ export default defineAppConfig({
       },
     ],
   },
+  style: 'v2',
+  sitemapLocation: 'sitemap.json',
+  lazyCodeLoading: 'requiredComponents',
 })

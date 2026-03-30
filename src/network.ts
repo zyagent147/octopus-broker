@@ -66,7 +66,7 @@ const shouldUseCloudContainer = (): boolean => {
   return isWeapp
 }
 
-// 微信云托管请求
+// 微信云托管请求（带回退机制）
 const cloudContainerRequest = async <T = any>(options: RequestOptions): Promise<T> => {
   const { url, method = 'GET', data, header = {}, showLoading = false } = options
 
@@ -82,6 +82,7 @@ const cloudContainerRequest = async <T = any>(options: RequestOptions): Promise<
   // 打印请求信息
   console.log('📤 Cloud Container Request:', {
     env: WX_CLOUD_CONFIG.env,
+    service: WX_CLOUD_CONFIG.service,
     path: url,
     method,
     data,
@@ -150,17 +151,34 @@ const cloudContainerRequest = async <T = any>(options: RequestOptions): Promise<
 
     console.error('❌ Cloud Container Error:', {
       path: url,
-      error: error.message,
+      error: error.message || error,
+      errCode: error.errCode,
     })
 
-    // 网络错误提示
-    if (!error.message?.includes('请求失败')) {
-      Taro.showToast({
-        title: '云托管请求失败，请检查网络连接',
-        icon: 'none',
-        duration: 2000,
-      })
+    // 检查是否需要回退到 HTTP 请求
+    if (WX_CLOUD_CONFIG.fallbackToHttp) {
+      const domain = getProjectDomain()
+      if (domain) {
+        console.log('🔄 Fallback to HTTP request...')
+        try {
+          return await httpRequest<T>(options)
+        } catch (fallbackError) {
+          console.error('❌ HTTP Fallback Error:', fallbackError)
+          throw fallbackError
+        }
+      }
     }
+
+    // 网络错误提示
+    const errorMessage = error.errCode === -1 
+      ? '云托管服务未部署，请联系管理员' 
+      : error.message || '请求失败'
+    
+    Taro.showToast({
+      title: errorMessage,
+      icon: 'none',
+      duration: 2000,
+    })
 
     throw error
   }
