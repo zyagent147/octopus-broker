@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { User, Phone, DollarSign, Bell, Calendar } from 'lucide-react-taro'
-import { useRentBillStore, calculateNextDueDate } from '@/stores/rentBill'
+import { User, Phone, DollarSign, Bell, Calendar, Info } from 'lucide-react-taro'
+import { useRentBillStore, calculateNextDueDate, getPaymentCycleText } from '@/stores/rentBill'
 import { useReminderStore } from '@/stores/reminder'
 import { usePropertyStore } from '@/stores/property'
 import { Input } from '@/components/ui/input'
@@ -13,8 +13,10 @@ interface RentBillForm {
   amount: string
   payment_cycle: 'monthly' | 'quarterly' | 'custom'
   custom_days: string
+  start_date: string // 账单开始日期
   bill_date: string
   reminder_days: string
+  remark: string
 }
 
 const initialForm: RentBillForm = {
@@ -23,8 +25,10 @@ const initialForm: RentBillForm = {
   amount: '',
   payment_cycle: 'monthly',
   custom_days: '',
+  start_date: new Date().toISOString().split('T')[0], // 默认今天
   bill_date: '1',
   reminder_days: '3',
+  remark: '',
 }
 
 const paymentCycleOptions = ['月付', '季付', '自定义']
@@ -40,16 +44,32 @@ export default function RentBillFormPage() {
   const [form, setForm] = useState<RentBillForm>(initialForm)
   const [submitting, setSubmitting] = useState(false)
 
-  // 本地存储
-  const getBill = useRentBillStore(state => state.getBill)
+  // 从 store 获取原始数据（不在 selector 中调用函数）
+  const properties = usePropertyStore(state => state.properties)
+  const bills = useRentBillStore(state => state.bills)
   const addBill = useRentBillStore(state => state.addBill)
   const updateBill = useRentBillStore(state => state.updateBill)
-  const getProperty = usePropertyStore(state => state.getProperty)
   const updateProperty = usePropertyStore(state => state.updateProperty)
   const addBillReminder = useReminderStore(state => state.addBillReminder)
 
-  // 获取房源信息
-  const property = propertyId ? getProperty(propertyId) : null
+  // 使用 useMemo 缓存计算结果
+  const property = useMemo(() => {
+    return properties.find(p => p.id === propertyId)
+  }, [properties, propertyId])
+
+  const existingBill = useMemo(() => {
+    return bills.find(b => b.id === id)
+  }, [bills, id])
+
+  // 计算预览下次收款日期
+  const previewDueDate = useMemo(() => {
+    return calculateNextDueDate(
+      form.start_date,
+      parseInt(form.bill_date, 10) || 1,
+      form.payment_cycle,
+      form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null
+    )
+  }, [form.start_date, form.bill_date, form.payment_cycle, form.custom_days])
 
   useEffect(() => {
     console.log('=== 应收账单表单初始化 ===')
@@ -57,26 +77,24 @@ export default function RentBillFormPage() {
     console.log('id:', id)
     console.log('isEdit:', isEdit)
     
-    if (id) {
+    if (existingBill) {
       loadBill()
     }
-  }, [id])
+  }, [existingBill])
 
   const loadBill = () => {
-    const bill = getBill(id!)
-    if (bill) {
+    if (existingBill) {
       setForm({
-        tenant_name: bill.tenant_name || '',
-        tenant_phone: bill.tenant_phone || '',
-        amount: bill.amount?.toString() || '',
-        payment_cycle: bill.payment_cycle || 'monthly',
-        custom_days: bill.custom_days?.toString() || '',
-        bill_date: bill.bill_date?.toString() || '1',
+        tenant_name: existingBill.tenant_name || '',
+        tenant_phone: existingBill.tenant_phone || '',
+        amount: existingBill.amount?.toString() || '',
+        payment_cycle: existingBill.payment_cycle || 'monthly',
+        custom_days: existingBill.custom_days?.toString() || '',
+        start_date: existingBill.start_date || new Date().toISOString().split('T')[0],
+        bill_date: existingBill.bill_date?.toString() || '1',
         reminder_days: '3',
+        remark: existingBill.remark || '',
       })
-    } else {
-      Taro.showToast({ title: '账单不存在', icon: 'none' })
-      setTimeout(() => Taro.navigateBack(), 1500)
     }
   }
 
@@ -99,6 +117,12 @@ export default function RentBillFormPage() {
     handleInputChange('bill_date', value)
   }
 
+  const handleStartDateChange = (e: any) => {
+    const value = e.detail.value
+    console.log('选择开始日期:', value)
+    handleInputChange('start_date', value)
+  }
+
   const handleSubmit = () => {
     console.log('=== 提交账单 ===')
     console.log('表单数据:', form)
@@ -111,6 +135,11 @@ export default function RentBillFormPage() {
 
     if (form.payment_cycle === 'custom' && (!form.custom_days || parseInt(form.custom_days) <= 0)) {
       Taro.showToast({ title: '请输入自定义天数', icon: 'none' })
+      return
+    }
+
+    if (!form.start_date) {
+      Taro.showToast({ title: '请选择账单开始日期', icon: 'none' })
       return
     }
 
@@ -128,11 +157,11 @@ export default function RentBillFormPage() {
       tenant_phone: form.tenant_phone.trim() || null,
       amount: parseFloat(form.amount),
       payment_cycle: form.payment_cycle,
+      start_date: form.start_date,
       bill_date: parseInt(form.bill_date, 10),
       custom_days: form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null,
       status: 'pending' as const,
-      paid_at: null,
-      remark: null,
+      remark: form.remark.trim() || null,
     }
 
     console.log('准备保存账单数据:', billData)
@@ -163,15 +192,9 @@ export default function RentBillFormPage() {
         ? `${property.community}${property.building ? ' ' + property.building : ''}` 
         : '房源'
       
-      const nextDueDate = calculateNextDueDate(
-        parseInt(form.bill_date, 10),
-        form.payment_cycle,
-        form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null
-      )
+      console.log('创建提醒:', { billId: savedBillId, propertyName, previewDueDate, reminderDays })
       
-      console.log('创建提醒:', { billId: savedBillId, propertyName, nextDueDate, reminderDays })
-      
-      addBillReminder(savedBillId, propertyName, nextDueDate, reminderDays)
+      addBillReminder(savedBillId, propertyName, previewDueDate, reminderDays)
     }
     
     setSubmitting(false)
@@ -234,6 +257,23 @@ export default function RentBillFormPage() {
             <Text className="text-base font-bold text-gray-800 mb-4">账单设置</Text>
             
             <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">账单开始日期 *</Text>
+              <Picker
+                mode="date"
+                value={form.start_date}
+                start="2020-01-01"
+                end="2030-12-31"
+                onChange={handleStartDateChange}
+              >
+                <View className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-3">
+                  <Text className="text-sm">{form.start_date || '请选择日期'}</Text>
+                  <Text className="text-gray-400">{'>'}</Text>
+                </View>
+              </Picker>
+              <Text className="text-xs text-gray-400 mt-1">租约起始日期，用于计算首次收款日期</Text>
+            </View>
+
+            <View className="mb-4">
               <Text className="text-sm text-gray-600 mb-2">应收金额 (元) *</Text>
               <View className="flex items-center gap-2">
                 <DollarSign size={18} color="#999" />
@@ -277,7 +317,7 @@ export default function RentBillFormPage() {
               </View>
             )}
 
-            <View>
+            <View className="mb-4">
               <Text className="text-sm text-gray-600 mb-2">账单日 *</Text>
               <Picker
                 mode="selector"
@@ -292,6 +332,17 @@ export default function RentBillFormPage() {
                   <Text className="text-gray-400">{'>'}</Text>
                 </View>
               </Picker>
+            </View>
+
+            {/* 预览下次收款日期 */}
+            <View className="bg-sky-50 rounded-lg p-3 mt-2">
+              <View className="flex items-center gap-2 mb-1">
+                <Info size={14} color="#3b82f6" />
+                <Text className="text-xs text-sky-600">下次收款日期预览</Text>
+              </View>
+              <Text className="text-sm font-medium text-sky-700">
+                {previewDueDate}（{getPaymentCycleText(form.payment_cycle, form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null)}）
+              </Text>
             </View>
           </View>
 
@@ -321,6 +372,16 @@ export default function RentBillFormPage() {
             </View>
           </View>
 
+          {/* 备注 */}
+          <View className="bg-white rounded-xl p-4">
+            <Text className="text-base font-bold text-gray-800 mb-4">备注</Text>
+            <Input
+              placeholder="添加备注信息（可选）"
+              value={form.remark}
+              onInput={(e) => handleInputChange('remark', e.detail.value)}
+            />
+          </View>
+
           {/* 提交按钮 */}
           <View className="pb-6">
             <View 
@@ -328,7 +389,7 @@ export default function RentBillFormPage() {
               onClick={submitting ? undefined : handleSubmit}
             >
               <Text className="text-white text-base font-medium">
-                {submitting ? '保存中...' : '保存'}
+                {submitting ? '保存中...' : isEdit ? '保存修改' : '创建账单'}
               </Text>
             </View>
           </View>

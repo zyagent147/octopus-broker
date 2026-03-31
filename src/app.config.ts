@@ -9,6 +9,7 @@ export default defineAppConfig({
     'pages/properties/detail/index',
     'pages/properties/form/index',
     'pages/rent-bills/form/index',
+    'pages/bills/index',
     'pages/services/index',
     'pages/services/form/index',
     'pages/admin/providers/index',

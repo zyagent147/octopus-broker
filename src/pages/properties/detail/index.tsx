@@ -1,13 +1,14 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { 
-  MapPin, House, Pencil, Trash2, Plus, DollarSign, Phone, Calendar, Check
+  MapPin, House, Pencil, Trash2, Plus, DollarSign, Phone, Calendar, Check,
+  History, ChevronRight, Clock, CircleAlert
 } from 'lucide-react-taro'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { usePropertyStore } from '@/stores/property'
-import { useRentBillStore } from '@/stores/rentBill'
+import { useRentBillStore, getPaymentCycleText, calculateBillStatus } from '@/stores/rentBill'
 
 const statusConfig = {
   available: { label: '空置', variant: 'default' as const, color: '#10b981' },
@@ -15,21 +16,17 @@ const statusConfig = {
   sold: { label: '已售', variant: 'outline' as const, color: '#9ca3af' },
 }
 
-const paymentCycleConfig = {
-  monthly: '月付',
-  quarterly: '季付',
-  custom: '自定义',
-}
-
 export default function PropertyDetailPage() {
   const router = useRouter()
   const { id } = router.params
+  const [showPaymentHistory, setShowPaymentHistory] = useState<string | null>(null)
   
   // 从 store 获取原始数据和方法（不要在 selector 中调用函数！）
   const properties = usePropertyStore(state => state.properties)
   const updateProperty = usePropertyStore(state => state.updateProperty)
   const deleteProperty = usePropertyStore(state => state.deleteProperty)
   const bills = useRentBillStore(state => state.bills)
+  const paymentHistory = useRentBillStore(state => state.paymentHistory)
   const markBillPaid = useRentBillStore(state => state.markAsPaid)
   const deleteBill = useRentBillStore(state => state.deleteBill)
 
@@ -42,11 +39,13 @@ export default function PropertyDetailPage() {
     return bills.filter(b => b.property_id === id)
   }, [bills, id])
 
-  const pendingAmount = useMemo(() => {
-    return propertyBills
-      .filter(b => b.status === 'pending')
-      .reduce((sum, b) => sum + b.amount, 0)
+  const pendingBills = useMemo(() => {
+    return propertyBills.filter(b => calculateBillStatus(b) !== 'paid')
   }, [propertyBills])
+
+  const pendingAmount = useMemo(() => {
+    return pendingBills.reduce((sum, b) => sum + b.amount, 0)
+  }, [pendingBills])
 
   const handleEdit = () => {
     console.log('点击编辑按钮')
@@ -96,10 +95,20 @@ export default function PropertyDetailPage() {
     Taro.navigateTo({ url: `/pages/rent-bills/form/index?propertyId=${id}&id=${billId}` })
   }
 
-  const handleMarkPaid = (billId: string) => {
+  const handleMarkPaid = async (billId: string) => {
     console.log('标记已收款:', billId)
-    markBillPaid(billId)
-    Taro.showToast({ title: '已标记收款', icon: 'success' })
+    
+    const res = await Taro.showModal({
+      title: '确认收款',
+      content: '确认已收到本期租金？',
+    })
+    
+    if (res.confirm) {
+      const result = markBillPaid(billId)
+      if (result) {
+        Taro.showToast({ title: '已标记收款', icon: 'success' })
+      }
+    }
   }
 
   const handleCall = (phone: string) => {
@@ -118,6 +127,10 @@ export default function PropertyDetailPage() {
     due.setHours(0, 0, 0, 0)
     const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     return diff
+  }
+
+  const getBillPaymentHistory = (billId: string) => {
+    return paymentHistory.filter(p => p.bill_id === billId)
   }
 
   if (!property) {
@@ -218,80 +231,143 @@ export default function PropertyDetailPage() {
               ) : (
                 <View className="space-y-3">
                   {propertyBills.map(bill => {
+                    const billStatus = calculateBillStatus(bill)
                     const daysUntil = getDaysUntilDue(bill.next_due_date)
-                    const isOverdue = daysUntil < 0
+                    const isOverdue = billStatus === 'overdue'
+                    const isPaid = billStatus === 'paid'
                     const isUpcoming = daysUntil >= 0 && daysUntil <= 3
+                    const billPayments = getBillPaymentHistory(bill.id)
+                    const isExpanded = showPaymentHistory === bill.id
 
                     return (
-                      <View 
-                        key={bill.id} 
-                        className={`p-3 rounded-xl border ${isOverdue ? 'border-red-200 bg-red-50' : isUpcoming ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}
-                      >
-                        <View className="flex items-center justify-between mb-2">
-                          <View className="flex items-center gap-2">
-                            <DollarSign size={16} color={isOverdue ? '#ef4444' : isUpcoming ? '#f97316' : '#3b82f6'} />
-                            <Text className="font-semibold text-gray-900">
-                              ¥{bill.amount.toLocaleString()}
-                            </Text>
-                            <Badge variant="outline" className="text-xs">
-                              {paymentCycleConfig[bill.payment_cycle]}
-                            </Badge>
+                      <View key={bill.id}>
+                        <View 
+                          className={`p-3 rounded-xl border ${isOverdue ? 'border-red-200 bg-red-50' : isUpcoming ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}
+                        >
+                          <View className="flex items-center justify-between mb-2">
+                            <View className="flex items-center gap-2">
+                              <DollarSign size={16} color={isOverdue ? '#ef4444' : isUpcoming ? '#f97316' : '#3b82f6'} />
+                              <Text className="font-semibold text-gray-900">
+                                ¥{bill.amount.toLocaleString()}
+                              </Text>
+                              <Badge variant="outline" className="text-xs">
+                                {getPaymentCycleText(bill.payment_cycle, bill.custom_days)}
+                              </Badge>
+                            </View>
+                            {isPaid ? (
+                              <Badge className="bg-green-500 text-white text-xs">已收款</Badge>
+                            ) : (
+                              <>
+                                {isOverdue && (
+                                  <Badge className="bg-red-500 text-white text-xs">
+                                    <CircleAlert size={12} color="#fff" />
+                                    <Text className="ml-1">逾期{Math.abs(daysUntil)}天</Text>
+                                  </Badge>
+                                )}
+                                {isUpcoming && (
+                                  <Badge className="bg-orange-500 text-white text-xs">{daysUntil}天后</Badge>
+                                )}
+                              </>
+                            )}
                           </View>
-                          {bill.status === 'paid' ? (
-                            <Badge className="bg-green-500 text-white text-xs">已收款</Badge>
-                          ) : (
-                            <>
-                              {isOverdue && (
-                                <Badge className="bg-red-500 text-white text-xs">已逾期</Badge>
+
+                          {bill.tenant_name && (
+                            <View className="flex items-center gap-2 mb-1">
+                              <Text className="text-sm text-gray-500">租客：</Text>
+                              <Text className="text-sm text-gray-900">{bill.tenant_name}</Text>
+                              {bill.tenant_phone && (
+                                <View 
+                                  className="p-1 rounded-full bg-green-100"
+                                  onClick={() => handleCall(bill.tenant_phone!)}
+                                >
+                                  <Phone size={14} color="#22c55e" />
+                                </View>
                               )}
-                              {isUpcoming && (
-                                <Badge className="bg-orange-500 text-white text-xs">{daysUntil}天后</Badge>
-                              )}
-                            </>
+                            </View>
+                          )}
+
+                          <View className="flex items-center gap-2 mb-2">
+                            <Calendar size={14} color="#999" />
+                            <Text className="text-sm text-gray-500">
+                              开始：{formatDate(bill.start_date)}
+                            </Text>
+                            <Text className="text-sm text-gray-400">|</Text>
+                            <Text className="text-sm text-gray-500">
+                              账单日：每月{bill.bill_date}号
+                            </Text>
+                          </View>
+
+                          <View className="flex items-center gap-2 mb-2">
+                            <Clock size={14} color="#999" />
+                            <Text className="text-sm text-gray-500">
+                              {isPaid ? '上次收款' : '下次收款'}：{formatDate(bill.next_due_date)}
+                            </Text>
+                          </View>
+
+                          {/* 操作按钮 */}
+                          {!isPaid && (
+                            <View className="flex gap-2 mt-2">
+                              <View 
+                                className="flex-1 py-2 rounded-lg bg-green-500 flex items-center justify-center"
+                                onClick={() => handleMarkPaid(bill.id)}
+                              >
+                                <Check size={14} color="#fff" />
+                                <Text className="text-white text-sm ml-1">确认收款</Text>
+                              </View>
+                              <View 
+                                className="px-3 py-2 rounded-lg bg-gray-200 flex items-center justify-center"
+                                onClick={() => handleEditBill(bill.id)}
+                              >
+                                <Pencil size={14} color="#666" />
+                              </View>
+                            </View>
+                          )}
+
+                          {/* 收款历史入口 */}
+                          {billPayments.length > 0 && (
+                            <View 
+                              className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between"
+                              onClick={() => setShowPaymentHistory(isExpanded ? null : bill.id)}
+                            >
+                              <View className="flex items-center gap-1">
+                                <History size={14} color="#3b82f6" />
+                                <Text className="text-xs text-sky-500">收款记录 ({billPayments.length})</Text>
+                              </View>
+                              <ChevronRight 
+                                size={14} 
+                                color="#3b82f6" 
+                                style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                              />
+                            </View>
                           )}
                         </View>
 
-                        {bill.tenant_name && (
-                          <View className="flex items-center gap-2 mb-1">
-                            <Text className="text-sm text-gray-500">租客：</Text>
-                            <Text className="text-sm text-gray-900">{bill.tenant_name}</Text>
-                            {bill.tenant_phone && (
+                        {/* 收款历史详情 */}
+                        {isExpanded && billPayments.length > 0 && (
+                          <View className="mt-1 ml-4 p-3 bg-white rounded-lg border-l-2 border-sky-200">
+                            {billPayments.map((payment, index) => (
                               <View 
-                                className="p-1 rounded-full bg-green-100"
-                                onClick={() => handleCall(bill.tenant_phone!)}
+                                key={payment.id} 
+                                className={`pb-2 ${index < billPayments.length - 1 ? 'mb-2 border-b border-gray-100' : ''}`}
                               >
-                                <Phone size={14} color="#22c55e" />
+                                <View className="flex items-center justify-between mb-1">
+                                  <Text className="text-sm font-medium text-gray-900">
+                                    ¥{payment.amount.toLocaleString()}
+                                  </Text>
+                                  <Text className="text-xs text-gray-400">
+                                    {formatDate(payment.paid_at)}
+                                  </Text>
+                                </View>
+                                <Text className="text-xs text-gray-500">
+                                  周期：{formatDate(payment.period_start)} ~ {formatDate(payment.period_end)}
+                                </Text>
+                                {payment.remark && (
+                                  <Text className="text-xs text-gray-400 mt-1">
+                                    备注：{payment.remark}
+                                  </Text>
+                                )}
                               </View>
-                            )}
-                          </View>
-                        )}
-
-                        <View className="flex items-center gap-2 mb-2">
-                          <Calendar size={14} color="#999" />
-                          <Text className="text-sm text-gray-500">
-                            账单日：每月{bill.bill_date}号
-                          </Text>
-                          <Text className="text-sm text-gray-500">|</Text>
-                          <Text className="text-sm text-gray-500">
-                            下次：{formatDate(bill.next_due_date)}
-                          </Text>
-                        </View>
-
-                        {bill.status !== 'paid' && (
-                          <View className="flex gap-2">
-                            <View 
-                              className="flex-1 py-2 rounded-lg bg-green-500 flex items-center justify-center"
-                              onClick={() => handleMarkPaid(bill.id)}
-                            >
-                              <Check size={14} color="#fff" />
-                              <Text className="text-white text-sm ml-1">确认收款</Text>
-                            </View>
-                            <View 
-                              className="px-3 py-2 rounded-lg bg-gray-200 flex items-center justify-center"
-                              onClick={() => handleEditBill(bill.id)}
-                            >
-                              <Pencil size={14} color="#666" />
-                            </View>
+                            ))}
                           </View>
                         )}
                       </View>
@@ -335,7 +411,8 @@ export default function PropertyDetailPage() {
               💡 使用提示：{'\n'}
               • 点击「添加」按钮创建收租账单{'\n'}
               • 添加账单后房源会自动标记为「已租」{'\n'}
-              • 系统会在账单日前提醒您收租
+              • 系统会在账单日前提醒您收租{'\n'}
+              • 标记收款后会自动计算下次收款日期
             </Text>
           </View>
         </View>

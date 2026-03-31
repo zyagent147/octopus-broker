@@ -5,9 +5,9 @@ import { useMemo } from 'react'
 import { useUserStore } from '@/stores/user'
 import { useCustomerStore } from '@/stores/customer'
 import { usePropertyStore } from '@/stores/property'
-import { useRentBillStore } from '@/stores/rentBill'
+import { useRentBillStore, calculateBillStatus } from '@/stores/rentBill'
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
+import { Settings, FileText, LogOut, ChevronRight, Shield, DollarSign } from 'lucide-react-taro'
 
 // 默认头像 - 使用 import 导入
 // @ts-ignore
@@ -45,8 +45,9 @@ const ProfilePage: FC = () => {
              createdDate.getFullYear() === currentYear
     }).length
 
-    // 待收款账单数量和金额
-    const pendingBills = bills.filter(b => b.status === 'pending')
+    // 待收款账单数量和金额（使用新的状态计算）
+    const pendingBills = bills.filter(b => calculateBillStatus(b) !== 'paid')
+    const overdueBills = bills.filter(b => calculateBillStatus(b) === 'overdue')
     const totalPendingAmount = pendingBills.reduce((sum, b) => sum + b.amount, 0)
 
     return {
@@ -54,6 +55,7 @@ const ProfilePage: FC = () => {
       totalProperties: properties.length,
       rentedProperties,
       pendingBills: pendingBills.length,
+      overdueBills: overdueBills.length,
       pendingAmount: totalPendingAmount,
       monthNewCustomers,
       monthNewProperties,
@@ -74,6 +76,12 @@ const ProfilePage: FC = () => {
   }
 
   const menuItems = [
+    { 
+      icon: DollarSign, 
+      label: '应收账单', 
+      action: () => Taro.navigateTo({ url: '/pages/bills/index' }),
+      badge: stats.pendingBills > 0 ? `${stats.pendingBills}` : undefined,
+    },
     { icon: FileText, label: '隐私协议', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
     { icon: Settings, label: '全局提醒设置', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
   ]
@@ -186,7 +194,7 @@ const ProfilePage: FC = () => {
       </View>
 
       {/* 功能菜单 */}
-      <View className="px-4 mt-4 space-y-3">
+      <View className="px-4 mt-4 space-y-4">
         {/* 管理员菜单 */}
         {isAdmin && (
           <Card>
@@ -215,8 +223,13 @@ const ProfilePage: FC = () => {
                 className={`flex items-center py-3 ${index > 0 ? 'border-t border-gray-100' : ''}`}
                 onClick={item.action}
               >
-                <item.icon size={20} color="#595959" />
+                <item.icon size={20} color={item.label === '应收账单' ? '#3b82f6' : '#595959'} />
                 <Text className="flex-1 ml-3 text-sm text-gray-700">{item.label}</Text>
+                {item.badge && (
+                  <View className="px-2 py-1 rounded-full bg-red-500 mr-2">
+                    <Text className="text-white text-xs">{item.badge}</Text>
+                  </View>
+                )}
                 <ChevronRight size={16} color="#8c8c8c" />
               </View>
             ))}
@@ -229,9 +242,10 @@ const ProfilePage: FC = () => {
         <View className="bg-amber-50 rounded-xl p-4">
           <Text className="text-sm text-amber-700">
             💡 应收账单功能使用说明：{'\n'}
-            1. 添加房源时选择「已租」状态{'\n'}
-            2. 在房源详情页可以看到「应收账单」模块{'\n'}
-            3. 点击添加账单即可创建收租提醒
+            1. 在房源详情页添加账单（需设置开始日期）{'\n'}
+            2. 系统会自动计算下次收款日期{'\n'}
+            3. 标记收款后会自动生成收款记录{'\n'}
+            4. 支持查看历史收款记录
           </Text>
         </View>
       </View>
