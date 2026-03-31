@@ -1,8 +1,6 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import type { FC } from 'react'
 import { useState } from 'react'
-import { Network } from '@/network'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,34 +9,12 @@ import {
   Calendar,
   Pencil,
   Trash2,
-  Plus,
   MessageCircle,
   Gift,
   FileText,
+  User,
 } from 'lucide-react-taro'
-
-interface Customer {
-  id: string
-  name: string
-  phone: string | null
-  budget: string | null
-  status: 'pending' | 'following' | 'completed' | 'abandoned'
-  contract_type: 'rent' | 'buy' | null
-  contract_end_date: string | null
-  birthday: string | null
-  requirements: string | null
-  reminder_days_contract: number | null
-  reminder_days_birthday: number | null
-  last_follow_time: string | null
-  created_at: string
-}
-
-interface FollowUp {
-  id: string
-  content: string
-  follow_time: string
-  created_at: string
-}
+import { useCustomerStore } from '@/stores/customer'
 
 const statusMap = {
   pending: { label: '待跟进', color: 'bg-orange-100 text-orange-600' },
@@ -52,47 +28,21 @@ const contractTypeMap = {
   buy: '购房',
 }
 
-const CustomerDetailPage: FC = () => {
-  const [customer, setCustomer] = useState<Customer | null>(null)
-  const [followUps, setFollowUps] = useState<FollowUp[]>([])
+export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true)
 
   const router = Taro.useRouter()
   const customerId = router.params.id
 
+  // 从本地存储获取客户数据
+  const getCustomer = useCustomerStore(state => state.getCustomer)
+  const deleteCustomer = useCustomerStore(state => state.deleteCustomer)
+  
+  const customer = customerId ? getCustomer(customerId) : null
+
   useDidShow(() => {
-    if (customerId) {
-      loadCustomerDetail()
-      loadFollowUps()
-    }
+    setLoading(false)
   })
-
-  const loadCustomerDetail = async () => {
-    try {
-      const result = await Network.request<{ data: Customer }>({
-        url: `/api/customers/${customerId}`,
-        method: 'GET',
-      })
-      setCustomer(result.data)
-    } catch (error) {
-      console.error('加载客户详情失败', error)
-      Taro.showToast({ title: '加载失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadFollowUps = async () => {
-    try {
-      const result = await Network.request<{ data: FollowUp[] }>({
-        url: `/api/customers/${customerId}/follow-ups`,
-        method: 'GET',
-      })
-      setFollowUps(result.data || [])
-    } catch (error) {
-      console.error('加载跟进记录失败', error)
-    }
-  }
 
   const handleEdit = () => {
     Taro.navigateTo({ url: `/pages/customers/form/index?id=${customerId}` })
@@ -102,20 +52,13 @@ const CustomerDetailPage: FC = () => {
     Taro.showModal({
       title: '确认删除',
       content: '删除后无法恢复，确定要删除这个客户吗？',
-      success: async (res) => {
+      success: (res) => {
         if (res.confirm) {
-          try {
-            await Network.request({
-              url: `/api/customers/${customerId}`,
-              method: 'DELETE',
-            })
-            Taro.showToast({ title: '删除成功', icon: 'success' })
-            setTimeout(() => {
-              Taro.navigateBack()
-            }, 1000)
-          } catch (error) {
-            console.error('删除失败', error)
-          }
+          deleteCustomer(customerId!)
+          Taro.showToast({ title: '删除成功', icon: 'success' })
+          setTimeout(() => {
+            Taro.navigateBack()
+          }, 1000)
         }
       },
     })
@@ -143,8 +86,9 @@ const CustomerDetailPage: FC = () => {
 
   if (!customer) {
     return (
-      <View className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Text className="text-gray-400">客户不存在</Text>
+      <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <User size={48} color="#d1d5db" />
+        <Text className="mt-4 text-gray-400">客户不存在</Text>
       </View>
     )
   }
@@ -160,22 +104,22 @@ const CustomerDetailPage: FC = () => {
                 {customer.name}
               </Text>
               {customer.contract_type && (
-                <Badge className="bg-purple-100 text-purple-600">
+                <Badge className="bg-purple-100 text-purple-600 px-2 py-1 rounded-full text-xs">
                   {contractTypeMap[customer.contract_type]}
                 </Badge>
               )}
             </View>
-            <Badge className={statusMap[customer.status].color}>
+            <Badge className={`${statusMap[customer.status].color} px-2 py-1 rounded-full text-xs`}>
               {statusMap[customer.status].label}
             </Badge>
           </View>
           <View className="flex gap-2">
-            <Button size="sm" className="h-8 px-3 bg-blue-500" onClick={handleEdit}>
+            <Button size="sm" className="h-8 px-3 bg-sky-500 rounded-lg" onClick={handleEdit}>
               <Pencil size={16} color="#fff" />
             </Button>
             <Button
               size="sm"
-              className="h-8 px-3 bg-white border border-red-300"
+              className="h-8 px-3 bg-white border border-red-300 rounded-lg"
               onClick={handleDelete}
             >
               <Trash2 size={16} color="#ff4d4f" />
@@ -188,7 +132,7 @@ const CustomerDetailPage: FC = () => {
           {customer.phone && (
             <Button
               size="sm"
-              className="flex-1 h-10 bg-green-500"
+              className="flex-1 h-10 bg-green-500 rounded-xl"
               onClick={handleCall}
             >
               <Phone size={16} color="#fff" />
@@ -197,7 +141,7 @@ const CustomerDetailPage: FC = () => {
           )}
           <Button
             size="sm"
-            className="flex-1 h-10 bg-blue-500"
+            className="flex-1 h-10 bg-sky-500 rounded-xl"
             onClick={handleAddFollowUp}
           >
             <MessageCircle size={16} color="#fff" />
@@ -253,6 +197,17 @@ const CustomerDetailPage: FC = () => {
                 </View>
               </View>
             )}
+            {customer.remark && (
+              <View className="flex gap-2">
+                <FileText size={16} color="#8c8c8c" className="shrink-0 mt-1" />
+                <View className="flex-1">
+                  <Text className="text-sm text-gray-500">备注：</Text>
+                  <Text className="text-sm text-gray-800 mt-1">
+                    {customer.remark}
+                  </Text>
+                </View>
+              </View>
+            )}
           </CardContent>
         </Card>
       </View>
@@ -280,49 +235,26 @@ const CustomerDetailPage: FC = () => {
         </View>
       )}
 
-      {/* 跟进记录 */}
-      <View className="px-4 mt-3 mb-6">
-        <Card>
-          <CardHeader>
-            <View className="flex justify-between items-center">
+      {/* 最后跟进时间 */}
+      {customer.last_follow_time && (
+        <View className="px-4 mt-3 mb-6">
+          <Card>
+            <CardHeader>
               <CardTitle className="text-base">跟进记录</CardTitle>
-              <Button
-                size="sm"
-                className="h-7 px-3 bg-blue-500"
-                onClick={handleAddFollowUp}
-              >
-                <Plus size={14} color="#fff" />
-                <Text className="text-white text-xs ml-1">添加</Text>
-              </Button>
-            </View>
-          </CardHeader>
-          <CardContent>
-            {followUps.length === 0 ? (
-              <View className="text-center py-4">
-                <Text className="text-sm text-gray-400">暂无跟进记录</Text>
+            </CardHeader>
+            <CardContent>
+              <View className="border-l-2 border-sky-500 pl-3 py-1">
+                <Text className="text-xs text-gray-400">
+                  {new Date(customer.last_follow_time).toLocaleString('zh-CN')}
+                </Text>
+                <Text className="text-sm text-gray-700 mt-1">
+                  最后跟进时间
+                </Text>
               </View>
-            ) : (
-              <View className="space-y-3">
-                {followUps.map((followUp) => (
-                  <View
-                    key={followUp.id}
-                    className="border-l-2 border-blue-500 pl-3 py-1"
-                  >
-                    <Text className="text-xs text-gray-400">
-                      {new Date(followUp.follow_time).toLocaleString('zh-CN')}
-                    </Text>
-                    <Text className="text-sm text-gray-700 mt-1">
-                      {followUp.content}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </CardContent>
-        </Card>
-      </View>
+            </CardContent>
+          </Card>
+        </View>
+      )}
     </ScrollView>
   )
 }
-
-export default CustomerDetailPage

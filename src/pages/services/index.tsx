@@ -1,274 +1,230 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { Network } from '@/network'
-import { Search, Phone, MapPin, Star, MessageCircle } from 'lucide-react-taro'
-import { Card, CardContent } from '@/components/ui/card'
+import Taro from '@tarojs/taro'
+import { 
+  Wifi, 
+  Sparkles, 
+  Truck, 
+  Building2, 
+  Wrench, 
+  Copy, 
+  X,
+  MessageCircle
+} from 'lucide-react-taro'
+import { Button } from '@/components/ui/button'
 
-interface Provider {
-  id: string
-  service_type: 'move' | 'clean' | 'repair' | 'decoration' | 'housekeeping'
-  name: string
-  contact_person?: string
-  phone: string
-  wechat?: string
-  address?: string
-  description?: string
-  price_range?: string
-  rating?: number
-  sort_order?: number
-}
+// 服务类型配置
+const serviceTypes = [
+  {
+    id: 'broadband',
+    name: '宽带服务',
+    icon: Wifi,
+    color: '#3b82f6',
+    bgColor: '#eff6ff',
+    description: '专业宽带安装、移机、提速服务',
+  },
+  {
+    id: 'cleaning',
+    name: '保洁服务',
+    icon: Sparkles,
+    color: '#10b981',
+    bgColor: '#ecfdf5',
+    description: '专业保洁、深度清洁、家电清洗',
+  },
+  {
+    id: 'moving',
+    name: '搬家服务',
+    icon: Truck,
+    color: '#f59e0b',
+    bgColor: '#fffbeb',
+    description: '专业搬家、打包、搬运一条龙',
+  },
+  {
+    id: 'management',
+    name: '毛坯托管',
+    icon: Building2,
+    color: '#8b5cf6',
+    bgColor: '#f5f3ff',
+    description: '房屋托管、装修出租一体化',
+  },
+  {
+    id: 'repair',
+    name: '维修服务',
+    icon: Wrench,
+    color: '#ef4444',
+    bgColor: '#fef2f2',
+    description: '水电维修、家电维修、管道疏通',
+  },
+]
 
-const serviceTypeConfig = {
-  move: { label: '搬家服务', icon: '🚚', color: '#3b82f6' },
-  clean: { label: '保洁服务', icon: '🧹', color: '#10b981' },
-  repair: { label: '维修服务', icon: '🔧', color: '#f59e0b' },
-  decoration: { label: '装修服务', icon: '🏠', color: '#8b5cf6' },
-  housekeeping: { label: '家政服务', icon: '👨‍🍳', color: '#ec4899' },
-}
+// 客户经理微信
+const MANAGER_WECHAT = '18986182147'
 
 export default function ServicesPage() {
-  const [providers, setProviders] = useState<Provider[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeType, setActiveType] = useState<string>('all')
-  const [searchKeyword, setSearchKeyword] = useState('')
+  const [showContact, setShowContact] = useState(false)
+  const [selectedService, setSelectedService] = useState<string>('')
 
-  const fetchProviders = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await Network.request({
-        url: '/api/providers',
-        method: 'GET',
-      })
-      
-      console.log('服务商列表响应:', res.data)
-      setProviders(res.data.data || [])
-    } catch (error) {
-      console.error('获取服务商列表失败:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useDidShow(() => {
-    fetchProviders()
-  })
-
-  usePullDownRefresh(() => {
-    fetchProviders().finally(() => {
-      Taro.stopPullDownRefresh()
-    })
-  })
-
-  // 筛选服务商
-  const filteredProviders = providers.filter(p => {
-    const matchType = activeType === 'all' || p.service_type === activeType
-    const matchSearch = !searchKeyword || 
-      p.name.includes(searchKeyword) || 
-      (p.contact_person && p.contact_person.includes(searchKeyword))
-    return matchType && matchSearch
-  })
-
-  // 按类型分组
-  const groupedProviders = filteredProviders.reduce((acc, provider) => {
-    const type = provider.service_type
-    if (!acc[type]) {
-      acc[type] = []
-    }
-    acc[type].push(provider)
-    return acc
-  }, {} as Record<string, Provider[]>)
-
-  const handleCall = (phone: string) => {
-    Taro.makePhoneCall({ phoneNumber: phone })
+  // 点击服务模块
+  const handleServiceClick = (serviceId: string) => {
+    setSelectedService(serviceId)
+    setShowContact(true)
   }
 
-  const handleCopyWechat = (wechat: string) => {
+  // 复制微信号
+  const handleCopyWechat = () => {
     Taro.setClipboardData({
-      data: wechat,
+      data: MANAGER_WECHAT,
       success: () => {
-        Taro.showToast({ title: '微信号已复制', icon: 'success' })
+        Taro.showToast({ 
+          title: '微信号已复制', 
+          icon: 'success' 
+        })
       }
     })
   }
 
-  const renderStars = (rating: number = 5) => {
-    return (
-      <View className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star 
-            key={star} 
-            size={12} 
-            color={star <= rating ? '#fbbf24' : '#d1d5db'} 
-          />
-        ))}
-      </View>
-    )
+  // 关闭弹窗
+  const handleCloseModal = () => {
+    setShowContact(false)
+    setSelectedService('')
   }
 
+  const selectedServiceInfo = serviceTypes.find(s => s.id === selectedService)
+
   return (
-    <View className="flex flex-col h-full bg-gray-50">
-      {/* 搜索栏 */}
-      <View className="bg-white px-4 py-3 border-b border-gray-100">
-        <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2">
-          <Search size={18} color="#999" />
-          <input
-            className="flex-1 text-sm text-gray-900 placeholder:text-gray-400 bg-transparent"
-            placeholder="搜索服务商..."
-            value={searchKeyword}
-            onInput={(e) => setSearchKeyword((e as any).detail.value)}
-          />
-        </View>
+    <View className="flex flex-col min-h-screen bg-gray-50">
+      {/* 头部 */}
+      <View className="bg-white px-4 py-4 border-b border-gray-100">
+        <Text className="block text-xl font-bold text-gray-800">服务市场</Text>
+        <Text className="block text-sm text-gray-500 mt-1">为您提供一站式生活服务</Text>
       </View>
 
-      {/* 服务类型筛选 */}
-      <View className="bg-white px-4 py-3 border-b border-gray-100">
-        <ScrollView scrollX className="flex flex-row gap-2 whitespace-nowrap">
-          <View
-            className={`px-4 py-2 rounded-full flex-shrink-0 ${
-              activeType === 'all' ? 'bg-sky-500' : 'bg-gray-100'
-            }`}
-            onClick={() => setActiveType('all')}
-          >
-            <Text className={activeType === 'all' ? 'text-white' : 'text-gray-700'}>全部</Text>
-          </View>
-          {Object.entries(serviceTypeConfig).map(([key, config]) => (
-            <View
-              key={key}
-              className={`px-4 py-2 rounded-full flex-shrink-0 ${
-                activeType === key ? 'bg-sky-500' : 'bg-gray-100'
-              }`}
-              onClick={() => setActiveType(key)}
-            >
-              <Text className={activeType === key ? 'text-white' : 'text-gray-700'}>
-                {config.icon} {config.label}
+      {/* 服务列表 */}
+      <ScrollView scrollY className="flex-1 px-4 py-4">
+        <View className="space-y-4">
+          {serviceTypes.map((service) => {
+            const IconComponent = service.icon
+            return (
+              <View
+                key={service.id}
+                className="bg-white rounded-2xl overflow-hidden shadow-sm"
+                onClick={() => handleServiceClick(service.id)}
+              >
+                <View className="flex items-center p-5">
+                  {/* 图标区域 */}
+                  <View 
+                    className="w-16 h-16 rounded-xl flex items-center justify-center mr-4"
+                    style={{ backgroundColor: service.bgColor }}
+                  >
+                    <IconComponent size={32} color={service.color} />
+                  </View>
+                  
+                  {/* 文字区域 */}
+                  <View className="flex-1">
+                    <Text className="block text-lg font-bold text-gray-800">
+                      {service.name}
+                    </Text>
+                    <Text className="block text-sm text-gray-500 mt-1">
+                      {service.description}
+                    </Text>
+                  </View>
+                  
+                  {/* 箭头 */}
+                  <View className="ml-2">
+                    <Text className="text-gray-300 text-xl">›</Text>
+                  </View>
+                </View>
+              </View>
+            )
+          })}
+        </View>
+
+        {/* 底部提示 */}
+        <View className="mt-6 mb-4">
+          <View className="bg-blue-50 rounded-xl p-4">
+            <View className="flex items-center gap-2">
+              <MessageCircle size={20} color="#3b82f6" />
+              <Text className="text-sm text-blue-600">
+                点击服务板块，添加客户经理微信获取详细报价
               </Text>
             </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* 服务商列表 */}
-      <ScrollView scrollY className="flex-1 px-4 py-3">
-        {loading ? (
-          <View className="flex items-center justify-center py-20">
-            <Text className="text-gray-400">加载中...</Text>
           </View>
-        ) : filteredProviders.length === 0 ? (
-          <View className="flex flex-col items-center justify-center py-20">
-            <Text className="text-4xl">🔍</Text>
-            <Text className="block mt-4 text-gray-400">暂无服务商</Text>
-            <Text className="block mt-2 text-gray-300 text-sm">请联系管理员添加</Text>
-          </View>
-        ) : (
-          <View className="space-y-3">
-            {activeType === 'all' ? (
-              // 按类型分组显示
-              Object.entries(groupedProviders).map(([type, typeProviders]) => (
-                <View key={type} className="mb-4">
-                  <View className="flex items-center gap-2 mb-2">
-                    <Text className="text-lg">
-                      {serviceTypeConfig[type as keyof typeof serviceTypeConfig]?.icon}
-                    </Text>
-                    <Text className="font-semibold text-gray-800">
-                      {serviceTypeConfig[type as keyof typeof serviceTypeConfig]?.label}
-                    </Text>
-                    <Text className="text-sm text-gray-400">({typeProviders.length})</Text>
-                  </View>
-                  {typeProviders.map(provider => renderProviderCard(provider))}
-                </View>
-              ))
-            ) : (
-              // 单类型显示
-              filteredProviders.map(provider => renderProviderCard(provider))
-            )}
-          </View>
-        )}
+        </View>
       </ScrollView>
 
-      {/* 底部提示 */}
-      <View className="px-4 py-3 bg-white border-t border-gray-100">
-        <Text className="block text-center text-xs text-gray-400">
-          如需新增服务商，请联系管理员
-        </Text>
-      </View>
-    </View>
-  )
-
-  function renderProviderCard(provider: Provider) {
-    const config = serviceTypeConfig[provider.service_type]
-    
-    return (
-      <Card key={provider.id} className="mb-2">
-        <CardContent className="p-4">
-          <View className="flex gap-3">
-            {/* 服务图标 */}
-            <View 
-              className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: `${config.color}15` }}
-            >
-              <Text className="text-2xl">{config.icon}</Text>
+      {/* 联系弹窗 */}
+      {showContact && (
+        <View 
+          className="fixed inset-0 z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={handleCloseModal}
+        >
+          <View 
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗头部 */}
+            <View className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
+              <Text className="text-lg font-bold text-gray-800">
+                {selectedServiceInfo?.name || '联系客服'}
+              </Text>
+              <View 
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+                onClick={handleCloseModal}
+              >
+                <X size={18} color="#666" />
+              </View>
             </View>
 
-            {/* 服务商信息 */}
-            <View className="flex-1 min-w-0">
-              <View className="flex items-center justify-between mb-1">
-                <Text className="block font-semibold text-gray-900 truncate flex-1">
-                  {provider.name}
-                </Text>
-                {renderStars(provider.rating)}
-              </View>
-
-              {provider.contact_person && (
-                <Text className="text-sm text-gray-600 mb-1">
-                  联系人：{provider.contact_person}
-                </Text>
-              )}
-
-              {provider.price_range && (
-                <Text className="text-sm text-sky-500 mb-1">
-                  价格：{provider.price_range}
-                </Text>
-              )}
-
-              {provider.address && (
-                <View className="flex items-center gap-1 mb-1">
-                  <MapPin size={12} color="#999" />
-                  <Text className="text-sm text-gray-500 truncate flex-1">
-                    {provider.address}
+            {/* 弹窗内容 */}
+            <View className="px-5 py-6">
+              {/* 服务图标 */}
+              {selectedServiceInfo && (
+                <View className="flex flex-col items-center mb-6">
+                  <View 
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center mb-3"
+                    style={{ backgroundColor: selectedServiceInfo.bgColor }}
+                  >
+                    <selectedServiceInfo.icon size={40} color={selectedServiceInfo.color} />
+                  </View>
+                  <Text className="text-base text-gray-600">
+                    {selectedServiceInfo.description}
                   </Text>
                 </View>
               )}
 
-              {provider.description && (
-                <Text className="text-xs text-gray-400 mt-2 line-clamp-2">
-                  {provider.description}
+              {/* 微信号展示 */}
+              <View className="bg-gray-50 rounded-2xl p-4 mb-4">
+                <Text className="block text-sm text-gray-500 mb-2 text-center">
+                  添加客户经理微信
                 </Text>
-              )}
-            </View>
-          </View>
-
-          {/* 联系方式按钮 */}
-          <View className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-            <View 
-              className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-sky-50"
-              onClick={() => handleCall(provider.phone)}
-            >
-              <Phone size={16} color="#0ea5e9" />
-              <Text className="text-sky-500 text-sm">拨打电话</Text>
-            </View>
-            {provider.wechat && (
-              <View 
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-green-50"
-                onClick={() => handleCopyWechat(provider.wechat!)}
-              >
-                <MessageCircle size={16} color="#10b981" />
-                <Text className="text-green-500 text-sm">复制微信</Text>
+                <View className="flex items-center justify-center gap-3">
+                  <Text className="text-2xl font-bold text-gray-800">
+                    {MANAGER_WECHAT}
+                  </Text>
+                </View>
               </View>
-            )}
+
+              {/* 复制按钮 */}
+              <Button
+                className="w-full h-12 bg-sky-500 rounded-xl"
+                onClick={handleCopyWechat}
+              >
+                <Copy size={20} color="#fff" />
+                <Text className="text-white font-medium ml-2">一键复制微信号</Text>
+              </Button>
+
+              {/* 提示 */}
+              <Text className="block text-xs text-gray-400 text-center mt-4">
+                复制微信号后，在微信中搜索添加即可
+              </Text>
+            </View>
+
+            {/* 安全区域底部 */}
+            <View className="h-8" />
           </View>
-        </CardContent>
-      </Card>
-    )
-  }
+        </View>
+      )}
+    </View>
+  )
 }
