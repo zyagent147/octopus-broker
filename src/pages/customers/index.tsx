@@ -1,6 +1,6 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, Plus, Phone, Calendar, Users, Bell, X, Check, Gift, FileText, DollarSign } from 'lucide-react-taro'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -30,27 +30,33 @@ export default function CustomersPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // 从本地存储获取客户列表
+  // 从本地存储获取客户列表 - 使用浅比较避免无限循环
   const customers = useCustomerStore(state => state.customers)
-  const searchCustomers = useCustomerStore(state => state.searchCustomers)
   
-  // 提醒相关
+  // 提醒相关 - 使用浅比较
   const reminders = useReminderStore(state => state.reminders)
   const dismissReminder = useReminderStore(state => state.dismissReminder)
   const completeReminder = useReminderStore(state => state.completeReminder)
 
-  // 获取需要显示的提醒
-  const activeReminders = reminders.filter(shouldRemind)
+  // 使用 useMemo 缓存计算结果，避免每次渲染都创建新数组
+  const activeReminders = useMemo(() => {
+    return reminders.filter(shouldRemind)
+  }, [reminders])
 
-  // 搜索过滤
-  const searchedCustomers = searchKeyword 
-    ? searchCustomers(searchKeyword)
-    : customers
-
-  // 状态过滤
-  const filteredCustomers = statusFilter === 'all' 
-    ? searchedCustomers 
-    : searchedCustomers.filter(c => c.status === statusFilter)
+  const filteredCustomers = useMemo(() => {
+    let result = customers
+    if (searchKeyword) {
+      const keyword = searchKeyword.toLowerCase()
+      result = result.filter(c => 
+        c.name.toLowerCase().includes(keyword) || 
+        c.phone?.includes(keyword)
+      )
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(c => c.status === statusFilter)
+    }
+    return result
+  }, [customers, searchKeyword, statusFilter])
 
   const handleAddCustomer = () => {
     Taro.navigateTo({ url: '/pages/customers/form/index' })
@@ -152,11 +158,11 @@ export default function CustomersPage() {
       {/* 搜索栏 */}
       <View className="bg-white px-4 py-3 border-b border-gray-100">
         <View className="flex items-center gap-2">
-          <View className="flex-1 flex items-center bg-gray-50 rounded-xl px-4 py-2">
-            <Search size={18} color="#999" />
+          <View className="flex-1 flex items-center">
+            <Search size={18} color="#999" className="shrink-0" />
             <View className="flex-1 ml-2">
               <Input
-                className="h-8 border-0 bg-transparent"
+                className="h-9 border-0 bg-gray-50 rounded-xl"
                 placeholder="搜索客户姓名或电话"
                 value={searchKeyword}
                 onInput={(e) => setSearchKeyword(e.detail.value)}
@@ -164,7 +170,7 @@ export default function CustomersPage() {
             </View>
           </View>
           <View
-            className="h-9 px-4 rounded-xl bg-sky-500 flex items-center justify-center"
+            className="h-9 px-4 rounded-xl bg-sky-500 flex items-center justify-center shrink-0"
             onClick={handleAddCustomer}
           >
             <Plus size={20} color="#fff" />
