@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
+import { useMemo } from 'react'
 import { 
   MapPin, House, Pencil, Trash2, Plus, DollarSign, Phone, Calendar, Check
 } from 'lucide-react-taro'
@@ -24,13 +25,28 @@ export default function PropertyDetailPage() {
   const router = useRouter()
   const { id } = router.params
   
-  // 本地存储
-  const property = usePropertyStore(state => state.getProperty(id!))
+  // 从 store 获取原始数据和方法（不要在 selector 中调用函数！）
+  const properties = usePropertyStore(state => state.properties)
   const updateProperty = usePropertyStore(state => state.updateProperty)
   const deleteProperty = usePropertyStore(state => state.deleteProperty)
-  const bills = useRentBillStore(state => state.getBillsByProperty(id!))
+  const bills = useRentBillStore(state => state.bills)
   const markBillPaid = useRentBillStore(state => state.markAsPaid)
   const deleteBill = useRentBillStore(state => state.deleteBill)
+
+  // 使用 useMemo 缓存计算结果
+  const property = useMemo(() => {
+    return properties.find(p => p.id === id)
+  }, [properties, id])
+
+  const propertyBills = useMemo(() => {
+    return bills.filter(b => b.property_id === id)
+  }, [bills, id])
+
+  const pendingAmount = useMemo(() => {
+    return propertyBills
+      .filter(b => b.status === 'pending')
+      .reduce((sum, b) => sum + b.amount, 0)
+  }, [propertyBills])
 
   const handleEdit = () => {
     console.log('点击编辑按钮')
@@ -46,7 +62,7 @@ export default function PropertyDetailPage() {
     
     if (res.confirm) {
       // 删除关联的账单
-      bills.forEach(bill => deleteBill(bill.id))
+      propertyBills.forEach(bill => deleteBill(bill.id))
       // 删除房源
       deleteProperty(id!)
       Taro.showToast({ title: '删除成功', icon: 'success' })
@@ -103,11 +119,6 @@ export default function PropertyDetailPage() {
     const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     return diff
   }
-
-  // 计算待收款总额
-  const pendingAmount = bills
-    .filter(b => b.status === 'pending')
-    .reduce((sum, b) => sum + b.amount, 0)
 
   if (!property) {
     return (
@@ -198,7 +209,7 @@ export default function PropertyDetailPage() {
               </View>
             </CardHeader>
             <CardContent>
-              {bills.length === 0 ? (
+              {propertyBills.length === 0 ? (
                 <View className="py-6 text-center">
                   <DollarSign size={40} color="#d1d5db" />
                   <Text className="text-gray-400 block mb-2">暂无账单记录</Text>
@@ -206,7 +217,7 @@ export default function PropertyDetailPage() {
                 </View>
               ) : (
                 <View className="space-y-3">
-                  {bills.map(bill => {
+                  {propertyBills.map(bill => {
                     const daysUntil = getDaysUntilDue(bill.next_due_date)
                     const isOverdue = daysUntil < 0
                     const isUpcoming = daysUntil >= 0 && daysUntil <= 3

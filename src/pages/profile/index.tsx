@@ -1,13 +1,12 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro from '@tarojs/taro'
 import type { FC } from 'react'
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { useUserStore } from '@/stores/user'
 import { useCustomerStore } from '@/stores/customer'
 import { usePropertyStore } from '@/stores/property'
 import { useRentBillStore } from '@/stores/rentBill'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
 
 // 默认头像 - 使用 import 导入
@@ -18,27 +17,13 @@ const ProfilePage: FC = () => {
   const user = useUserStore((state) => state.user)
   const logout = useUserStore((state) => state.logout)
   
-  // 从本地存储获取数据
+  // 从本地存储获取原始数组
   const customers = useCustomerStore((state) => state.customers)
   const properties = usePropertyStore((state) => state.properties)
   const bills = useRentBillStore((state) => state.bills)
   
-  const [stats, setStats] = useState({
-    totalCustomers: 0,
-    totalProperties: 0,
-    rentedProperties: 0,
-    pendingBills: 0,
-    pendingAmount: 0,
-    monthNewCustomers: 0,
-    monthNewProperties: 0,
-  })
-
-  useDidShow(() => {
-    calculateStats()
-  })
-
-  // 从本地存储计算统计数据
-  const calculateStats = () => {
+  // 使用 useMemo 缓存所有统计数据
+  const stats = useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
@@ -64,7 +49,7 @@ const ProfilePage: FC = () => {
     const pendingBills = bills.filter(b => b.status === 'pending')
     const totalPendingAmount = pendingBills.reduce((sum, b) => sum + b.amount, 0)
 
-    setStats({
+    return {
       totalCustomers: customers.length,
       totalProperties: properties.length,
       rentedProperties,
@@ -72,8 +57,8 @@ const ProfilePage: FC = () => {
       pendingAmount: totalPendingAmount,
       monthNewCustomers,
       monthNewProperties,
-    })
-  }
+    }
+  }, [customers, properties, bills])
 
   const handleLogout = () => {
     Taro.showModal({
@@ -253,15 +238,13 @@ const ProfilePage: FC = () => {
 
       {/* 退出登录按钮 */}
       <View className="px-4 mt-6">
-        <Button
-          className="w-full h-11 bg-white border border-gray-200 rounded-xl"
+        <View
+          className="w-full h-11 bg-white border border-gray-200 rounded-xl flex items-center justify-center"
           onClick={handleLogout}
         >
-          <View className="flex items-center justify-center">
-            <LogOut size={18} color="#ff4d4f" />
-            <Text className="text-red-500 text-sm ml-2">退出登录</Text>
-          </View>
-        </Button>
+          <LogOut size={18} color="#ff4d4f" />
+          <Text className="text-red-500 text-sm ml-2">退出登录</Text>
+        </View>
       </View>
 
       {/* 版本信息 */}

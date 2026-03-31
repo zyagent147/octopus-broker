@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Search, Plus, MapPin, Building, House, Pencil, DollarSign } from 'lucide-react-taro'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { usePropertyStore } from '@/stores/property'
 import { useRentBillStore } from '@/stores/rentBill'
 
@@ -17,27 +17,34 @@ const statusConfig = {
 export default function PropertiesPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   
-  // 从本地存储获取房源列表
+  // 从本地存储获取原始数组（不要在 selector 中调用函数！）
   const properties = usePropertyStore(state => state.properties)
-  const searchProperties = usePropertyStore(state => state.searchProperties)
   const bills = useRentBillStore(state => state.bills)
 
-  // 搜索过滤
-  const filteredProperties = searchKeyword 
-    ? searchProperties(searchKeyword)
-    : properties
+  // 使用 useMemo 缓存所有计算结果
+  const filteredProperties = useMemo(() => {
+    if (!searchKeyword) return properties
+    const keyword = searchKeyword.toLowerCase()
+    return properties.filter(p => 
+      p.community.toLowerCase().includes(keyword) ||
+      p.address.toLowerCase().includes(keyword)
+    )
+  }, [properties, searchKeyword])
 
-  // 获取房源的待收款账单数
-  const getPendingBillCount = (propertyId: string) => {
-    return bills.filter(b => b.property_id === propertyId && b.status === 'pending').length
-  }
-
-  // 获取房源的待收款金额
-  const getPendingAmount = (propertyId: string) => {
-    return bills
-      .filter(b => b.property_id === propertyId && b.status === 'pending')
-      .reduce((sum, b) => sum + b.amount, 0)
-  }
+  // 预计算每个房源的账单信息
+  const propertyBillInfo = useMemo(() => {
+    const info: Record<string, { count: number; amount: number }> = {}
+    bills.forEach(b => {
+      if (b.status === 'pending') {
+        if (!info[b.property_id]) {
+          info[b.property_id] = { count: 0, amount: 0 }
+        }
+        info[b.property_id].count++
+        info[b.property_id].amount += b.amount
+      }
+    })
+    return info
+  }, [bills])
 
   const handleAdd = () => {
     Taro.navigateTo({ url: '/pages/properties/form/index' })
@@ -61,23 +68,28 @@ export default function PropertiesPage() {
     <View className="flex flex-col h-full bg-gray-50">
       {/* 搜索栏 */}
       <View className="bg-white px-4 py-3 border-b border-gray-100">
-        <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2">
-          <Search size={18} color="#999" />
-          <input
-            className="flex-1 text-sm text-gray-900 placeholder:text-gray-400 bg-transparent"
-            placeholder="搜索房源名称或地址..."
-            value={searchKeyword}
-            onInput={(e) => setSearchKeyword((e as any).detail.value)}
-          />
+        <View className="flex items-center gap-2">
+          <Search size={18} color="#999" className="shrink-0" />
+          <View className="flex-1">
+            <Input
+              className="h-9 border-0 bg-gray-50 rounded-xl"
+              placeholder="搜索房源名称或地址..."
+              value={searchKeyword}
+              onInput={(e) => setSearchKeyword(e.detail.value)}
+            />
+          </View>
         </View>
       </View>
 
       {/* 添加按钮 */}
       <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <Button onClick={handleAdd} className="w-full bg-sky-500 text-white rounded-xl">
-          <Plus size={18} color="#fff" className="mr-2" />
-          <Text className="text-white">添加房源</Text>
-        </Button>
+        <View 
+          className="w-full h-11 rounded-xl flex items-center justify-center bg-sky-500"
+          onClick={handleAdd}
+        >
+          <Plus size={18} color="#fff" />
+          <Text className="text-white ml-2">添加房源</Text>
+        </View>
       </View>
 
       {/* 房源列表 */}
@@ -92,8 +104,7 @@ export default function PropertiesPage() {
         ) : (
           <View className="space-y-3">
             {filteredProperties.map(property => {
-              const pendingBillCount = getPendingBillCount(property.id)
-              const pendingAmount = getPendingAmount(property.id)
+              const billInfo = propertyBillInfo[property.id] || { count: 0, amount: 0 }
               
               return (
                 <Card key={property.id} onClick={() => handleDetail(property.id)}>
@@ -148,11 +159,11 @@ export default function PropertiesPage() {
                         </View>
 
                         {/* 待收款提示 */}
-                        {pendingBillCount > 0 && (
+                        {billInfo.count > 0 && (
                           <View className="flex items-center gap-1 bg-red-50 rounded-lg px-2 py-1">
                             <DollarSign size={14} color="#ef4444" />
                             <Text className="text-xs text-red-500">
-                              待收 ¥{pendingAmount.toLocaleString()} ({pendingBillCount}笔)
+                              待收 ¥{billInfo.amount.toLocaleString()} ({billInfo.count}笔)
                             </Text>
                           </View>
                         )}

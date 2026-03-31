@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useCustomerStore } from '@/stores/customer'
-import { useReminderStore, shouldRemind, getDaysUntilDue, type Reminder } from '@/stores/reminder'
+import { useReminderStore, getDaysUntilDue, type Reminder } from '@/stores/reminder'
 
 const statusMap = {
   pending: { label: '待跟进', color: 'bg-orange-100 text-orange-600' },
@@ -30,17 +30,17 @@ export default function CustomersPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // 从本地存储获取客户列表 - 使用浅比较避免无限循环
+  // 从本地存储获取原始数组（不要在 selector 中调用函数！）
   const customers = useCustomerStore(state => state.customers)
   
-  // 提醒相关 - 使用浅比较
+  // 提醒相关 - 获取原始数组
   const reminders = useReminderStore(state => state.reminders)
   const dismissReminder = useReminderStore(state => state.dismissReminder)
   const completeReminder = useReminderStore(state => state.completeReminder)
 
-  // 使用 useMemo 缓存计算结果，避免每次渲染都创建新数组
+  // 使用 useMemo 缓存所有计算结果，避免每次渲染创建新对象
   const activeReminders = useMemo(() => {
-    return reminders.filter(shouldRemind)
+    return reminders.filter(r => r.status === 'pending' && getDaysUntilDue(r.due_date) <= r.advance_days && getDaysUntilDue(r.due_date) >= 0)
   }, [reminders])
 
   const filteredCustomers = useMemo(() => {
@@ -57,6 +57,13 @@ export default function CustomersPage() {
     }
     return result
   }, [customers, searchKeyword, statusFilter])
+  
+  // 统计数据也用 useMemo 缓存
+  const stats = useMemo(() => ({
+    total: customers.length,
+    pending: customers.filter(c => c.status === 'pending').length,
+    completed: customers.filter(c => c.status === 'completed').length,
+  }), [customers])
 
   const handleAddCustomer = () => {
     Taro.navigateTo({ url: '/pages/customers/form/index' })
@@ -283,19 +290,19 @@ export default function CustomersPage() {
         <View className="flex justify-around">
           <View className="text-center">
             <Text className="block text-xl font-bold text-sky-500">
-              {customers.length}
+              {stats.total}
             </Text>
             <Text className="block text-xs text-gray-500">总客户</Text>
           </View>
           <View className="text-center">
             <Text className="block text-xl font-bold text-orange-500">
-              {customers.filter((c) => c.status === 'pending').length}
+              {stats.pending}
             </Text>
             <Text className="block text-xs text-gray-500">待跟进</Text>
           </View>
           <View className="text-center">
             <Text className="block text-xl font-bold text-green-500">
-              {customers.filter((c) => c.status === 'completed').length}
+              {stats.completed}
             </Text>
             <Text className="block text-xs text-gray-500">已成交</Text>
           </View>
