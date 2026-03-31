@@ -80,9 +80,9 @@ export default function LoginPage() {
         // H5或其他环境，使用开发模式登录
         console.log('H5环境，调用开发模式登录接口...')
         const result = await Network.request<{ code: number; msg: string; data: { token: string; user: any } }>({
-          url: '/api/auth/login',
+          url: '/api/auth/dev-login',
           method: 'POST',
-          data: { code: 'DEV_H5_LOGIN' },
+          data: { devCode: 'DEV2024' },
         })
 
         console.log('登录响应:', JSON.stringify(result))

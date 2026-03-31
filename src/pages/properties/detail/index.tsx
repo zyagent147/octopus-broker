@@ -3,7 +3,6 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { 
   MapPin, House, Pencil, Trash2, Plus, DollarSign, Phone, Calendar, Check
 } from 'lucide-react-taro'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { usePropertyStore } from '@/stores/property'
@@ -34,10 +33,12 @@ export default function PropertyDetailPage() {
   const deleteBill = useRentBillStore(state => state.deleteBill)
 
   const handleEdit = () => {
+    console.log('点击编辑按钮')
     Taro.navigateTo({ url: `/pages/properties/form/index?id=${id}` })
   }
 
   const handleDelete = async () => {
+    console.log('点击删除按钮')
     const res = await Taro.showModal({
       title: '确认删除',
       content: '删除后无法恢复，是否继续？',
@@ -54,6 +55,7 @@ export default function PropertyDetailPage() {
   }
 
   const handleAddBill = () => {
+    console.log('点击添加账单按钮')
     // 如果房源不是已租状态，先提示用户
     if (property && property.status !== 'rented') {
       Taro.showModal({
@@ -74,10 +76,12 @@ export default function PropertyDetailPage() {
   }
 
   const handleEditBill = (billId: string) => {
+    console.log('点击编辑账单:', billId)
     Taro.navigateTo({ url: `/pages/rent-bills/form/index?propertyId=${id}&id=${billId}` })
   }
 
   const handleMarkPaid = (billId: string) => {
+    console.log('标记已收款:', billId)
     markBillPaid(billId)
     Taro.showToast({ title: '已标记收款', icon: 'success' })
   }
@@ -184,16 +188,19 @@ export default function PropertyDetailPage() {
                     </Badge>
                   )}
                 </View>
-                <Button size="sm" className="bg-sky-500 text-white" onClick={handleAddBill}>
+                <View 
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg bg-sky-500"
+                  onClick={handleAddBill}
+                >
                   <Plus size={16} color="#fff" />
-                  <Text className="text-white ml-1">添加</Text>
-                </Button>
+                  <Text className="text-white text-sm">添加</Text>
+                </View>
               </View>
             </CardHeader>
             <CardContent>
               {bills.length === 0 ? (
                 <View className="py-6 text-center">
-                  <DollarSign size={40} color="#d1d5db" className="mx-auto mb-2" />
+                  <DollarSign size={40} color="#d1d5db" />
                   <Text className="text-gray-400 block mb-2">暂无账单记录</Text>
                   <Text className="text-xs text-gray-300">点击右上角「添加」创建收租账单</Text>
                 </View>
@@ -269,7 +276,7 @@ export default function PropertyDetailPage() {
                               <Text className="text-white text-sm ml-1">确认收款</Text>
                             </View>
                             <View 
-                              className="px-3 py-2 rounded-lg bg-gray-200"
+                              className="px-3 py-2 rounded-lg bg-gray-200 flex items-center justify-center"
                               onClick={() => handleEditBill(bill.id)}
                             >
                               <Pencil size={14} color="#666" />
@@ -323,7 +330,7 @@ export default function PropertyDetailPage() {
         </View>
       </ScrollView>
 
-      {/* 底部操作栏 */}
+      {/* 底部操作栏 - 使用原生 View 确保事件触发 */}
       <View 
         style={{
           position: 'fixed',
@@ -339,14 +346,20 @@ export default function PropertyDetailPage() {
           paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
         }}
       >
-        <Button variant="outline" className="flex-1" onClick={handleDelete}>
+        <View 
+          className="flex-1 h-11 rounded-lg flex items-center justify-center border border-red-200"
+          onClick={handleDelete}
+        >
           <Trash2 size={18} color="#ef4444" />
           <Text className="text-red-500 ml-2">删除</Text>
-        </Button>
-        <Button className="flex-1 bg-sky-500 text-white" onClick={handleEdit}>
+        </View>
+        <View 
+          className="flex-1 h-11 rounded-lg flex items-center justify-center bg-sky-500"
+          onClick={handleEdit}
+        >
           <Pencil size={18} color="#fff" />
           <Text className="text-white ml-2">编辑</Text>
-        </Button>
+        </View>
       </View>
     </View>
   )

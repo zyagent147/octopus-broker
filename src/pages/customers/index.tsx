@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { Search, Plus, Phone, Calendar, Users, Bell, X, Check, Gift, FileText, DollarSign } from 'lucide-react-taro'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useCustomerStore } from '@/stores/customer'
 import { useReminderStore, shouldRemind, getDaysUntilDue, type Reminder } from '@/stores/reminder'
@@ -154,20 +154,21 @@ export default function CustomersPage() {
         <View className="flex items-center gap-2">
           <View className="flex-1 flex items-center bg-gray-50 rounded-xl px-4 py-2">
             <Search size={18} color="#999" />
-            <input
-              className="flex-1 ml-2 text-sm text-gray-900 placeholder:text-gray-400 bg-transparent"
-              placeholder="搜索客户姓名或电话"
-              value={searchKeyword}
-              onInput={(e) => setSearchKeyword((e as any).detail.value)}
-            />
+            <View className="flex-1 ml-2">
+              <Input
+                className="h-8 border-0 bg-transparent"
+                placeholder="搜索客户姓名或电话"
+                value={searchKeyword}
+                onInput={(e) => setSearchKeyword(e.detail.value)}
+              />
+            </View>
           </View>
-          <Button
-            className="bg-sky-500 rounded-xl"
-            size="sm"
+          <View
+            className="h-9 px-4 rounded-xl bg-sky-500 flex items-center justify-center"
             onClick={handleAddCustomer}
           >
             <Plus size={20} color="#fff" />
-          </Button>
+          </View>
         </View>
       </View>
 
