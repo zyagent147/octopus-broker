@@ -1,5 +1,5 @@
 {
-  "miniprogramRoot": "./dist",
+  "miniprogramRoot": "./dist-weapp",
   "projectname": "zhangyu-broker",
   "description": "章鱼经纪人 - 房产经纪人办公工具",
   "appid": "wxd244b605ba704aab",

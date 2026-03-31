@@ -58,7 +58,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
     if (hasWeappConfig) {
       miniCIConfig.weapp = {
         appid: process.env.TARO_APP_WEAPP_APPID,
-        privateKeyPath: 'key/private.appid.key',
+        privateKeyPath: 'key/private.wxd244b605ba704aab.key',
       };
     }
     if (hasTTConfig) {

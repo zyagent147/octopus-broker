@@ -3,25 +3,11 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { LucideTaroProvider } from 'lucide-react-taro'
 import { Toaster } from '@/components/ui/toast'
 import { useUserStore } from '@/stores/user'
-import { WX_CLOUD_CONFIG } from '@/config/cloud'
 import '@/app.css'
 import { Preset } from './presets'
 
 const App = ({ children }: PropsWithChildren) => {
   const isLoggedIn = useUserStore((state) => state.isLoggedIn)
-
-  // 初始化微信云（仅小程序端）
-  useEffect(() => {
-    if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP && WX_CLOUD_CONFIG.enabled) {
-      Taro.cloud.init({
-        env: WX_CLOUD_CONFIG.env,
-      })
-      console.log('☁️ 微信云初始化成功', {
-        env: WX_CLOUD_CONFIG.env,
-        service: WX_CLOUD_CONFIG.service,
-      })
-    }
-  }, [])
 
   // 检查登录状态
   const checkLoginStatus = () => {
