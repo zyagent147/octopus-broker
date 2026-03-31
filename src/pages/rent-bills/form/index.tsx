@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { User, Phone, DollarSign, Bell } from 'lucide-react-taro'
+import { User, Phone, DollarSign, Bell, Calendar } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useRentBillStore } from '@/stores/rentBill'
+import { useRentBillStore, calculateNextDueDate } from '@/stores/rentBill'
 import { useReminderStore } from '@/stores/reminder'
 import { usePropertyStore } from '@/stores/property'
 
@@ -53,11 +53,20 @@ export default function RentBillFormPage() {
   const addBill = useRentBillStore(state => state.addBill)
   const updateBill = useRentBillStore(state => state.updateBill)
   const getProperty = usePropertyStore(state => state.getProperty)
+  const updateProperty = usePropertyStore(state => state.updateProperty)
   
   // 提醒存储
   const addBillReminder = useReminderStore(state => state.addBillReminder)
 
+  // 获取房源信息
+  const property = propertyId ? getProperty(propertyId) : null
+
   useEffect(() => {
+    console.log('=== 应收账单表单初始化 ===')
+    console.log('propertyId:', propertyId)
+    console.log('id:', id)
+    console.log('isEdit:', isEdit)
+    
     if (id) {
       loadBill()
     }
@@ -82,6 +91,7 @@ export default function RentBillFormPage() {
   }
 
   const handleInputChange = (field: keyof RentBillForm, value: string) => {
+    console.log(`输入 ${field}:`, value)
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
@@ -89,6 +99,7 @@ export default function RentBillFormPage() {
     const index = e.detail.value
     const selected = billDateOptions[index]
     if (selected) {
+      console.log('选择账单日:', selected.value)
       handleInputChange('bill_date', selected.value)
     }
   }
@@ -97,11 +108,16 @@ export default function RentBillFormPage() {
     const index = e.detail.value
     const selected = paymentCycleOptions[index]
     if (selected) {
+      console.log('选择付款周期:', selected.value)
       handleInputChange('payment_cycle', selected.value as 'monthly' | 'quarterly' | 'custom')
     }
   }
 
   const handleSubmit = async () => {
+    console.log('=== 提交账单 ===')
+    console.log('表单数据:', form)
+    
+    // 表单验证
     if (!form.amount || parseFloat(form.amount) <= 0) {
       Taro.showToast({ title: '请输入正确的金额', icon: 'none' })
       return
@@ -114,6 +130,7 @@ export default function RentBillFormPage() {
 
     if (!propertyId) {
       Taro.showToast({ title: '房源ID缺失', icon: 'none' })
+      console.error('propertyId 为空')
       return
     }
 
@@ -133,46 +150,60 @@ export default function RentBillFormPage() {
         remark: null,
       }
 
+      console.log('准备保存账单数据:', billData)
+
       let savedBillId = id
       
       if (isEdit) {
         updateBill(id!, billData)
+        console.log('更新账单成功:', id)
         Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
         const newBill = addBill(billData)
         savedBillId = newBill.id
+        console.log('创建账单成功:', newBill)
         Taro.showToast({ title: '创建成功', icon: 'success' })
+        
+        // 如果房源不是已租状态，自动更新为已租
+        if (property && property.status !== 'rented') {
+          updateProperty(propertyId, { status: 'rented' })
+          console.log('已将房源状态更新为已租')
+        }
       }
 
       // 创建账单提醒
       const reminderDays = parseInt(form.reminder_days, 10) || 3
-      if (reminderDays > 0) {
-        const property = getProperty(propertyId)
-        const propertyName = property ? `${property.community}${property.building || ''}` : '房源'
+      if (reminderDays > 0 && savedBillId) {
+        const propertyName = property 
+          ? `${property.community}${property.building ? ' ' + property.building : ''}` 
+          : '房源'
         
         // 计算下次收款日期
-        const now = new Date()
-        let nextDueDate = new Date()
-        nextDueDate.setDate(parseInt(form.bill_date, 10))
-        nextDueDate.setHours(0, 0, 0, 0)
+        const nextDueDate = calculateNextDueDate(
+          parseInt(form.bill_date, 10),
+          form.payment_cycle,
+          form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null
+        )
         
-        if (nextDueDate <= now) {
-          if (form.payment_cycle === 'monthly') {
-            nextDueDate.setMonth(nextDueDate.getMonth() + 1)
-          } else if (form.payment_cycle === 'quarterly') {
-            nextDueDate.setMonth(nextDueDate.getMonth() + 3)
-          }
-        }
+        console.log('创建提醒:', {
+          billId: savedBillId,
+          propertyName,
+          nextDueDate,
+          reminderDays
+        })
         
         addBillReminder(
-          savedBillId!,
+          savedBillId,
           propertyName,
-          nextDueDate.toISOString().split('T')[0],
+          nextDueDate,
           reminderDays
         )
       }
       
-      setTimeout(() => Taro.navigateBack(), 1500)
+      setTimeout(() => {
+        console.log('返回上一页')
+        Taro.navigateBack()
+      }, 1500)
     } catch (error) {
       console.error('提交失败:', error)
       Taro.showToast({ title: '操作失败', icon: 'none' })
@@ -185,6 +216,21 @@ export default function RentBillFormPage() {
     <View className="flex flex-col h-full bg-gray-50">
       <ScrollView scrollY className="flex-1 p-4">
         <View className="space-y-4">
+          {/* 关联房源信息 */}
+          {property && (
+            <Card>
+              <CardContent className="p-4">
+                <View className="flex items-center gap-2">
+                  <Calendar size={18} color="#3b82f6" />
+                  <Text className="text-sm text-gray-500">关联房源：</Text>
+                  <Text className="text-sm font-medium text-gray-900">
+                    {property.community}{property.building ? ` ${property.building}` : ''}
+                  </Text>
+                </View>
+              </CardContent>
+            </Card>
+          )}
+
           {/* 租客信息 */}
           <Card>
             <CardHeader>
@@ -246,7 +292,7 @@ export default function RentBillFormPage() {
                   mode="selector"
                   range={paymentCycleOptions}
                   rangeKey="label"
-                  value={paymentCycleOptions.findIndex(o => o.value === form.payment_cycle)}
+                  value={Math.max(0, paymentCycleOptions.findIndex(o => o.value === form.payment_cycle))}
                   onChange={handlePaymentCycleChange}
                 >
                   <View className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
@@ -279,7 +325,7 @@ export default function RentBillFormPage() {
                   mode="selector"
                   range={billDateOptions}
                   rangeKey="label"
-                  value={parseInt(form.bill_date, 10) - 1}
+                  value={Math.max(0, parseInt(form.bill_date, 10) - 1)}
                   onChange={handleDateChange}
                 >
                   <View className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
