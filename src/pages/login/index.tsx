@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
 
-// Logo 图片 - 使用 import 导入
+// Logo 图片
 // @ts-ignore
 import logoImage from '@/assets/章鱼经纪人.jpeg'
 
@@ -20,92 +20,93 @@ export default function LoginPage() {
     try {
       // 检测运行环境
       const env = Taro.getEnv()
+      console.log('=== 登录开始 ===')
       console.log('当前运行环境:', env)
 
-      // 如果是H5环境，使用开发模式登录
-      if (env === Taro.ENV_TYPE.WEB) {
-        console.log('H5环境，使用开发模式登录')
-        await handleDevLogin()
-        return
-      }
+      // 微信小程序环境，使用微信登录
+      if (env === Taro.ENV_TYPE.WEAPP) {
+        // 1. 获取微信登录code
+        console.log('步骤1: 调用 Taro.login() 获取code...')
+        const loginResult = await Taro.login()
+        const { code } = loginResult
 
-      // 微信小程序环境，使用真实登录
-      const { code } = await Taro.login()
+        if (!code) {
+          console.error('获取code失败:', loginResult)
+          Taro.showToast({ title: '获取微信授权失败', icon: 'none' })
+          return
+        }
 
-      if (!code) {
-        Taro.showToast({ title: '微信登录失败', icon: 'none' })
-        return
-      }
+        console.log('步骤1完成: 获取到code:', code)
 
-      console.log('获取到微信code:', code)
+        // 2. 调用后端登录接口
+        console.log('步骤2: 调用后端登录接口 /api/auth/login...')
+        const result = await Network.request<{ code: number; msg: string; data: { token: string; user: any } }>({
+          url: '/api/auth/login',
+          method: 'POST',
+          data: { code },
+        })
 
-      // 调用后端登录接口
-      const result = await Network.request<{ code: number; msg: string; data: { token: string; user: any } }>({
-        url: '/api/auth/login',
-        method: 'POST',
-        data: { code },
-      })
+        console.log('步骤2完成: 后端响应:', JSON.stringify(result))
 
-      console.log('登录响应:', result.data)
+        // 3. 检查响应数据
+        if (!result || !result.data) {
+          console.error('响应数据格式错误:', result)
+          Taro.showToast({ title: '登录失败：响应数据异常', icon: 'none' })
+          return
+        }
 
-      const { token, user } = result.data
+        const { token, user } = result.data
 
-      // 保存登录信息
-      login(user, token)
+        if (!token || !user) {
+          console.error('缺少token或user:', result.data)
+          Taro.showToast({ title: '登录失败：数据不完整', icon: 'none' })
+          return
+        }
 
-      Taro.showToast({ title: '登录成功', icon: 'success' })
-
-      // 延迟跳转，让用户看到提示
-      setTimeout(() => {
-        Taro.switchTab({ url: '/pages/customers/index' })
-      }, 1000)
-    } catch (error: any) {
-      console.error('登录失败', error)
-      Taro.showToast({
-        title: error.message || '登录失败，请重试',
-        icon: 'none',
-        duration: 2000,
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 开发模式模拟登录
-  const handleDevLogin = async () => {
-    if (loading) return
-
-    setLoading(true)
-
-    try {
-      // 调用后端开发模式登录接口
-      const res = await Network.request({
-        url: '/api/auth/dev-login',
-        method: 'POST',
-        data: { devCode: 'DEV2024' },
-      })
-
-      if (res.data.code === 200) {
-        const { token, user } = res.data.data
-        
-        // 保存登录信息
+        // 4. 保存登录信息
+        console.log('步骤3: 保存登录信息...')
         login(user, token)
+        console.log('步骤3完成: 登录信息已保存')
 
+        // 5. 显示成功提示
         Taro.showToast({ title: '登录成功', icon: 'success' })
 
-        // 延迟跳转
+        // 6. 跳转到首页
         setTimeout(() => {
+          console.log('步骤4: 跳转到首页')
           Taro.switchTab({ url: '/pages/customers/index' })
         }, 1000)
       } else {
-        Taro.showToast({ title: res.data.msg || '登录失败', icon: 'none' })
+        // H5或其他环境，使用开发模式登录
+        console.log('H5环境，调用开发模式登录接口...')
+        const result = await Network.request<{ code: number; msg: string; data: { token: string; user: any } }>({
+          url: '/api/auth/login',
+          method: 'POST',
+          data: { code: 'DEV_H5_LOGIN' },
+        })
+
+        console.log('登录响应:', JSON.stringify(result))
+
+        if (result && result.data) {
+          const { token, user } = result.data
+          login(user, token)
+          Taro.showToast({ title: '登录成功', icon: 'success' })
+          setTimeout(() => {
+            Taro.switchTab({ url: '/pages/customers/index' })
+          }, 1000)
+        }
       }
     } catch (error: any) {
-      console.error('登录失败', error)
-      Taro.showToast({
-        title: '登录失败，请重试',
-        icon: 'none',
-        duration: 2000,
+      console.error('=== 登录失败 ===')
+      console.error('错误类型:', typeof error)
+      console.error('错误信息:', error.message)
+      console.error('错误堆栈:', error.stack)
+      console.error('完整错误对象:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
+      
+      Taro.showModal({
+        title: '登录失败',
+        content: error.message || '未知错误，请查看控制台日志',
+        showCancel: false,
       })
     } finally {
       setLoading(false)
@@ -147,12 +148,11 @@ export default function LoginPage() {
           width: '100%', 
           maxWidth: '320px',
           height: '48px',
-          backgroundColor: '#3b82f6',
+          backgroundColor: loading ? '#9ca3af' : '#3b82f6',
           borderRadius: '12px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '12px'
+          justifyContent: 'center'
         }}
         onClick={handleLogin}
       >
@@ -161,37 +161,10 @@ export default function LoginPage() {
         </Text>
       </View>
 
-      {/* 体验模式按钮 */}
-      <View 
-        style={{ 
-          width: '100%', 
-          maxWidth: '320px',
-          height: '48px',
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid #e5e7eb'
-        }}
-        onClick={handleDevLogin}
-      >
-        <Text style={{ color: '#3b82f6', fontSize: '16px', fontWeight: '500' }}>
-          体验模式
-        </Text>
-      </View>
-
       {/* 说明 */}
       <View style={{ marginTop: '32px' }}>
         <Text style={{ fontSize: '12px', textAlign: 'center', color: '#9ca3af' }}>
           登录即代表同意《用户协议》和《隐私政策》
-        </Text>
-      </View>
-
-      {/* 提示 */}
-      <View style={{ marginTop: '16px', padding: '12px', backgroundColor: '#eff6ff', borderRadius: '8px', maxWidth: '320px' }}>
-        <Text style={{ fontSize: '11px', textAlign: 'center', color: '#3b82f6' }}>
-          💡 点击「体验模式」可直接进入，无需微信授权
         </Text>
       </View>
     </View>
