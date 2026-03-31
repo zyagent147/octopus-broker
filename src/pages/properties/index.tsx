@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { usePropertyStore } from '@/stores/property'
 import { useLeaseStore } from '@/stores/lease'
-import { useMonthlyBillStore, isBillOverdue } from '@/stores/monthlyBill'
+import { useBillStore, isBillOverdue } from '@/stores/bill'
 
 const statusConfig = {
   available: { label: '空置', variant: 'default' as const, color: '#10b981' },
@@ -21,7 +21,7 @@ export default function PropertiesPage() {
   // 从本地存储获取原始数组
   const properties = usePropertyStore(state => state.properties)
   const leases = useLeaseStore(state => state.leases)
-  const bills = useMonthlyBillStore(state => state.bills)
+  const bills = useBillStore(state => state.bills)
 
   // 使用 useMemo 缓存所有计算结果
   const filteredProperties = useMemo(() => {

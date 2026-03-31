@@ -2,6 +2,17 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import Taro from '@tarojs/taro'
 
+// 付款方式
+export type PaymentMethod = 'monthly' | 'quarterly' | 'semiannual' | 'annual'
+
+// 付款方式配置
+export const paymentMethodConfig: Record<PaymentMethod, { label: string; months: number }> = {
+  monthly: { label: '月付', months: 1 },
+  quarterly: { label: '季付', months: 3 },
+  semiannual: { label: '半年付', months: 6 },
+  annual: { label: '年付', months: 12 },
+}
+
 // 租约数据类型
 export interface Lease {
   id: string
@@ -17,8 +28,8 @@ export interface Lease {
   
   // 租约规则
   monthly_rent: number // 月租金
-  payment_day: number // 每月固定交租日（1-28）
-  start_date: string // 租约开始时间
+  payment_method: PaymentMethod // 付款方式
+  start_date: string // 租约开始时间（即首期付款日期）
   end_date: string // 租约结束时间
   
   // 提醒设置
@@ -72,6 +83,25 @@ const getCurrentTime = () => {
 const isLeaseActive = (lease: Lease): boolean => {
   const today = new Date().toISOString().split('T')[0]
   return lease.end_date >= today
+}
+
+// 计算租约总期数
+export const calculateTotalPeriods = (startDate: string, endDate: string, paymentMethod: PaymentMethod): number => {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const months = paymentMethodConfig[paymentMethod].months
+  
+  // 计算总月数
+  const totalMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1
+  
+  // 计算期数（向上取整）
+  return Math.ceil(totalMonths / months)
+}
+
+// 计算每期金额
+export const calculatePeriodAmount = (monthlyRent: number, paymentMethod: PaymentMethod): number => {
+  const months = paymentMethodConfig[paymentMethod].months
+  return monthlyRent * months
 }
 
 export const useLeaseStore = create<LeaseState>()(

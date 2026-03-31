@@ -8,8 +8,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { usePropertyStore } from '@/stores/property'
-import { useLeaseStore } from '@/stores/lease'
-import { useMonthlyBillStore, isBillOverdue, getDaysUntilDue } from '@/stores/monthlyBill'
+import { useLeaseStore, paymentMethodConfig } from '@/stores/lease'
+import { useBillStore, isBillOverdue, getDaysUntilDue, formatBillPeriod } from '@/stores/bill'
 
 const statusConfig = {
   available: { label: '待租', variant: 'default' as const, color: '#10b981' },
@@ -28,9 +28,9 @@ export default function PropertyDetailPage() {
   const deleteProperty = usePropertyStore(state => state.deleteProperty)
   const leases = useLeaseStore(state => state.leases)
   const deleteLease = useLeaseStore(state => state.deleteLease)
-  const bills = useMonthlyBillStore(state => state.bills)
-  const markBillPaid = useMonthlyBillStore(state => state.markAsPaid)
-  const deleteBill = useMonthlyBillStore(state => state.deleteBill)
+  const bills = useBillStore(state => state.bills)
+  const markBillPaid = useBillStore(state => state.markAsPaid)
+  const deleteBill = useBillStore(state => state.deleteBill)
 
   // 使用 useMemo 缓存计算结果
   const property = useMemo(() => {
@@ -46,7 +46,7 @@ export default function PropertyDetailPage() {
   // 获取关联的账单
   const propertyBills = useMemo(() => {
     if (!lease) return []
-    return bills.filter(b => b.lease_id === lease.id).sort((a, b) => b.bill_month.localeCompare(a.bill_month))
+    return bills.filter(b => b.lease_id === lease.id).sort((a, b) => b.period_index - a.period_index)
   }, [bills, lease])
 
   // 待收款账单
@@ -124,11 +124,6 @@ export default function PropertyDetailPage() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  }
-
-  const formatMonth = (monthStr: string) => {
-    const [year, month] = monthStr.split('-')
-    return `${year}年${parseInt(month, 10)}月`
   }
 
   if (!property) {
@@ -278,8 +273,8 @@ export default function PropertyDetailPage() {
                           <Text className="font-semibold text-sky-500">¥{lease.monthly_rent.toLocaleString()}</Text>
                         </View>
                         <View className="flex items-center justify-between py-1">
-                          <Text className="text-gray-500">交租日</Text>
-                          <Text className="text-gray-900">每月{lease.payment_day}号</Text>
+                          <Text className="text-gray-500">付款方式</Text>
+                          <Text className="text-gray-900">{paymentMethodConfig[lease.payment_method].label}</Text>
                         </View>
                         <View className="flex items-center justify-between py-1">
                           <Text className="text-gray-500">租期</Text>
@@ -346,7 +341,7 @@ export default function PropertyDetailPage() {
                             >
                               <View className="flex items-center justify-between mb-2">
                                 <Text className="font-medium text-gray-900">
-                                  {formatMonth(bill.bill_month)}
+                                  第{bill.period_index}期 · {formatBillPeriod(bill.period_start, bill.period_end, lease.payment_method)}
                                 </Text>
                                 {bill.status === 'paid' ? (
                                   <Badge className="bg-green-500 text-white text-xs">已收款</Badge>
@@ -376,8 +371,12 @@ export default function PropertyDetailPage() {
                                 )}
                               </View>
 
+                              <Text className="text-xs text-gray-400 mt-1">
+                                应收日期：{formatDate(bill.due_date)}
+                              </Text>
+
                               {bill.status === 'paid' && bill.paid_at && (
-                                <Text className="text-xs text-gray-400 mt-1">
+                                <Text className="text-xs text-gray-400">
                                   收款时间：{formatDate(bill.paid_at)}
                                 </Text>
                               )}
@@ -424,8 +423,8 @@ export default function PropertyDetailPage() {
             <Text className="text-xs text-amber-700">
               💡 使用提示：{'\n'}
               • 房源状态改为「已租」后可添加租约信息{'\n'}
-              • 系统会根据租约自动生成每月账单{'\n'}
-              • 到交租日前会自动提醒您收租
+              • 根据付款方式自动生成账单（月付/季付/半年付/年付）{'\n'}
+              • 到每期付款日前会自动提醒您收租
             </Text>
           </View>
         </View>

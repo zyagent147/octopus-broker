@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 import { useCustomerStore } from '@/stores/customer'
 import { usePropertyStore } from '@/stores/property'
 import { useLeaseStore } from '@/stores/lease'
-import { useMonthlyBillStore, isBillOverdue } from '@/stores/monthlyBill'
+import { useBillStore, isBillOverdue } from '@/stores/bill'
 import { Card, CardContent } from '@/components/ui/card'
 import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
 
@@ -22,7 +22,7 @@ const ProfilePage: FC = () => {
   const customers = useCustomerStore((state) => state.customers)
   const properties = usePropertyStore((state) => state.properties)
   const leases = useLeaseStore((state) => state.leases)
-  const bills = useMonthlyBillStore((state) => state.bills)
+  const bills = useBillStore((state) => state.bills)
   
   // 使用 useMemo 缓存所有统计数据
   const stats = useMemo(() => {

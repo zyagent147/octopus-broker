@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { User, Phone, DollarSign, Bell, House, Info } from 'lucide-react-taro'
-import { useLeaseStore } from '@/stores/lease'
-import { useMonthlyBillStore } from '@/stores/monthlyBill'
+import { useLeaseStore, paymentMethodConfig, calculateTotalPeriods, calculatePeriodAmount, PaymentMethod } from '@/stores/lease'
+import { useBillStore } from '@/stores/bill'
 import { usePropertyStore } from '@/stores/property'
 import { useReminderStore } from '@/stores/reminder'
 import { Input } from '@/components/ui/input'
@@ -17,7 +17,7 @@ interface LeaseForm {
   tenant_phone: string
   // 租约规则
   monthly_rent: string
-  payment_day: string
+  payment_method: PaymentMethod
   start_date: string
   end_date: string
   // 提醒设置
@@ -30,13 +30,16 @@ const initialForm: LeaseForm = {
   tenant_name: '',
   tenant_phone: '',
   monthly_rent: '',
-  payment_day: '5',
+  payment_method: 'quarterly',
   start_date: new Date().toISOString().split('T')[0],
   end_date: '',
   reminder_days: '3',
 }
 
-const paymentDayLabels = Array.from({ length: 28 }, (_, i) => `每月${i + 1}号`)
+const paymentMethodOptions = Object.entries(paymentMethodConfig).map(([key, value]) => ({
+  value: key as PaymentMethod,
+  label: value.label,
+}))
 
 export default function LeaseFormPage() {
   const router = useRouter()
@@ -51,7 +54,7 @@ export default function LeaseFormPage() {
   const leases = useLeaseStore(state => state.leases)
   const addLease = useLeaseStore(state => state.addLease)
   const updateLease = useLeaseStore(state => state.updateLease)
-  const generateBillsForLease = useMonthlyBillStore(state => state.generateBillsForLease)
+  const generateBillsForLease = useBillStore(state => state.generateBillsForLease)
   const addRentReminder = useReminderStore(state => state.addRentReminder)
 
   // 使用 useMemo 缓存计算结果
@@ -64,13 +67,31 @@ export default function LeaseFormPage() {
   }, [leases, id])
 
   // 计算租约时长（月）
-  const leaseDuration = useMemo(() => {
+  const leaseMonths = useMemo(() => {
     if (!form.start_date || !form.end_date) return 0
     const start = new Date(form.start_date)
     const end = new Date(form.end_date)
     const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1
     return Math.max(0, months)
   }, [form.start_date, form.end_date])
+
+  // 计算总期数
+  const totalPeriods = useMemo(() => {
+    if (!form.start_date || !form.end_date || leaseMonths === 0) return 0
+    return calculateTotalPeriods(form.start_date, form.end_date, form.payment_method)
+  }, [form.start_date, form.end_date, form.payment_method, leaseMonths])
+
+  // 计算每期金额
+  const periodAmount = useMemo(() => {
+    if (!form.monthly_rent) return 0
+    return calculatePeriodAmount(parseFloat(form.monthly_rent) || 0, form.payment_method)
+  }, [form.monthly_rent, form.payment_method])
+
+  // 计算总租金
+  const totalRent = useMemo(() => {
+    if (!form.monthly_rent || totalPeriods === 0) return 0
+    return (parseFloat(form.monthly_rent) || 0) * leaseMonths
+  }, [form.monthly_rent, totalPeriods, leaseMonths])
 
   useEffect(() => {
     console.log('=== 租约表单初始化 ===')
@@ -90,7 +111,7 @@ export default function LeaseFormPage() {
         tenant_name: existingLease.tenant_name || '',
         tenant_phone: existingLease.tenant_phone || '',
         monthly_rent: existingLease.monthly_rent?.toString() || '',
-        payment_day: existingLease.payment_day?.toString() || '5',
+        payment_method: existingLease.payment_method || 'quarterly',
         start_date: existingLease.start_date || new Date().toISOString().split('T')[0],
         end_date: existingLease.end_date || '',
         reminder_days: existingLease.reminder_days?.toString() || '3',
@@ -103,11 +124,11 @@ export default function LeaseFormPage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const handlePaymentDayChange = (e: any) => {
+  const handlePaymentMethodChange = (e: any) => {
     const index = e.detail.value
-    const value = String(index + 1)
-    console.log('选择交租日:', value)
-    handleInputChange('payment_day', value)
+    const value = paymentMethodOptions[index].value
+    console.log('选择付款方式:', value)
+    handleInputChange('payment_method', value)
   }
 
   const handleStartDateChange = (e: any) => {
@@ -174,7 +195,7 @@ export default function LeaseFormPage() {
       tenant_name: form.tenant_name.trim(),
       tenant_phone: form.tenant_phone.trim(),
       monthly_rent: parseFloat(form.monthly_rent),
-      payment_day: parseInt(form.payment_day, 10),
+      payment_method: form.payment_method,
       start_date: form.start_date,
       end_date: form.end_date,
       reminder_days: parseInt(form.reminder_days, 10) || 3,
@@ -190,18 +211,17 @@ export default function LeaseFormPage() {
       const newLease = addLease(leaseData)
       console.log('创建租约成功:', newLease)
       
-      // 自动生成月度账单
+      // 自动生成账单
       const bills = generateBillsForLease(newLease)
       console.log('自动生成账单:', bills.length, '条')
       
-      // 创建收租提醒（为最近一次账单创建）
+      // 创建收租提醒（为最近一次即将到期的账单创建）
       const propertyName = property 
         ? `${property.community}${property.building ? ' ' + property.building : ''}` 
         : '房源'
       
       const reminderDays = parseInt(form.reminder_days, 10) || 3
       if (reminderDays > 0 && bills.length > 0) {
-        // 为每个即将到来的账单创建提醒
         const today = new Date().toISOString().split('T')[0]
         const upcomingBills = bills.filter(b => b.due_date >= today)
         
@@ -211,7 +231,7 @@ export default function LeaseFormPage() {
             propertyId,
             propertyName,
             nearestBill.due_date,
-            parseInt(form.payment_day, 10),
+            form.payment_method,
             reminderDays
           )
           console.log('创建收租提醒成功')
@@ -330,16 +350,16 @@ export default function LeaseFormPage() {
             </View>
 
             <View className="mb-4">
-              <Text className="text-sm text-gray-600 mb-2">每月固定交租日 *</Text>
+              <Text className="text-sm text-gray-600 mb-2">付款方式 *</Text>
               <Picker
                 mode="selector"
-                range={paymentDayLabels}
-                value={parseInt(form.payment_day, 10) - 1}
-                onChange={handlePaymentDayChange}
+                range={paymentMethodOptions.map(p => p.label)}
+                value={paymentMethodOptions.findIndex(p => p.value === form.payment_method)}
+                onChange={handlePaymentMethodChange}
               >
                 <View className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-3">
                   <Text className="text-sm">
-                    {paymentDayLabels[parseInt(form.payment_day, 10) - 1] || '请选择'}
+                    {paymentMethodConfig[form.payment_method]?.label || '请选择'}
                   </Text>
                   <Text className="text-gray-400">{'>'}</Text>
                 </View>
@@ -347,7 +367,7 @@ export default function LeaseFormPage() {
             </View>
 
             <View className="mb-4">
-              <Text className="text-sm text-gray-600 mb-2">租约开始时间 *</Text>
+              <Text className="text-sm text-gray-600 mb-2">租约开始时间（首期付款日）*</Text>
               <Picker
                 mode="date"
                 value={form.start_date}
@@ -378,16 +398,35 @@ export default function LeaseFormPage() {
               </Picker>
             </View>
 
-            {/* 租约时长预览 */}
-            {leaseDuration > 0 && (
+            {/* 租约信息预览 */}
+            {leaseMonths > 0 && form.monthly_rent && (
               <View className="bg-sky-50 rounded-lg p-3 mt-2">
-                <View className="flex items-center gap-2 mb-1">
+                <View className="flex items-center gap-2 mb-2">
                   <Info size={14} color="#3b82f6" />
-                  <Text className="text-xs text-sky-600">租约时长</Text>
+                  <Text className="text-xs text-sky-600">租约信息预览</Text>
                 </View>
-                <Text className="text-sm font-medium text-sky-700">
-                  共 {leaseDuration} 个月
-                </Text>
+                <View className="space-y-1 text-sm text-sky-700">
+                  <View className="flex justify-between">
+                    <Text>租期时长</Text>
+                    <Text className="font-medium">{leaseMonths} 个月</Text>
+                  </View>
+                  <View className="flex justify-between">
+                    <Text>付款方式</Text>
+                    <Text className="font-medium">{paymentMethodConfig[form.payment_method]?.label}</Text>
+                  </View>
+                  <View className="flex justify-between">
+                    <Text>共需付款</Text>
+                    <Text className="font-medium">{totalPeriods} 期</Text>
+                  </View>
+                  <View className="flex justify-between">
+                    <Text>每期金额</Text>
+                    <Text className="font-medium">¥{periodAmount.toLocaleString()}</Text>
+                  </View>
+                  <View className="flex justify-between pt-1 border-t border-sky-200 mt-1">
+                    <Text>总租金</Text>
+                    <Text className="font-bold">¥{totalRent.toLocaleString()}</Text>
+                  </View>
+                </View>
               </View>
             )}
           </View>
@@ -413,7 +452,7 @@ export default function LeaseFormPage() {
                 <Text className="text-sm text-gray-500">天</Text>
               </View>
               <Text className="text-xs text-gray-400 mt-2">
-                支持设置 1-15 天，默认提前 3 天提醒，将在交租日前提醒您收租
+                支持设置 1-15 天，默认提前 3 天提醒，将在每期付款日前提醒您收租
               </Text>
             </View>
           </View>

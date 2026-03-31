@@ -1,25 +1,27 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import Taro from '@tarojs/taro'
-import { Lease } from './lease'
+import { Lease, paymentMethodConfig, PaymentMethod } from './lease'
 
-// 月度账单数据类型
-export interface MonthlyBill {
+// 账单数据类型
+export interface Bill {
   id: string
   lease_id: string // 关联租约ID
   property_id: string // 关联房源ID
   
   // 账单信息
-  bill_month: string // 账单月份 (YYYY-MM)
-  due_date: string // 应收日期 (YYYY-MM-DD)
-  amount: number // 应收金额
+  period_index: number // 第几期（从1开始）
+  period_start: string // 本期开始日期
+  period_end: string // 本期结束日期
+  due_date: string // 应收日期
+  amount: number // 本期金额
   
   // 状态
   status: 'pending' | 'paid' // 待收租/已收租
   
   // 收款记录
   paid_at: string | null // 实际收款时间
-  paid_amount: number | null // 实际收款金额（可能与应收费不同）
+  paid_amount: number | null // 实际收款金额
   remark: string | null // 备注
   
   // 时间戳
@@ -27,28 +29,28 @@ export interface MonthlyBill {
   updated_at: string | null
 }
 
-interface MonthlyBillState {
-  bills: MonthlyBill[]
+interface BillState {
+  bills: Bill[]
   
   // 增删改查
-  addBill: (bill: Omit<MonthlyBill, 'id' | 'created_at' | 'updated_at'>) => MonthlyBill
-  updateBill: (id: string, data: Partial<MonthlyBill>) => MonthlyBill | null
+  addBill: (bill: Omit<Bill, 'id' | 'created_at' | 'updated_at'>) => Bill
+  updateBill: (id: string, data: Partial<Bill>) => Bill | null
   deleteBill: (id: string) => boolean
-  getBill: (id: string) => MonthlyBill | undefined
+  getBill: (id: string) => Bill | undefined
   
   // 批量生成
-  generateBillsForLease: (lease: Lease) => MonthlyBill[]
+  generateBillsForLease: (lease: Lease) => Bill[]
   
   // 查询
-  getBillsByLease: (leaseId: string) => MonthlyBill[]
-  getBillsByProperty: (propertyId: string) => MonthlyBill[]
-  getPendingBills: () => MonthlyBill[]
-  getOverdueBills: () => MonthlyBill[]
-  getUpcomingBills: (days: number) => MonthlyBill[]
+  getBillsByLease: (leaseId: string) => Bill[]
+  getBillsByProperty: (propertyId: string) => Bill[]
+  getPendingBills: () => Bill[]
+  getOverdueBills: () => Bill[]
+  getUpcomingBills: (days: number) => Bill[]
   
   // 操作
-  markAsPaid: (id: string, paidAmount?: number, remark?: string) => MonthlyBill | null
-  markAsUnpaid: (id: string) => MonthlyBill | null
+  markAsPaid: (id: string, paidAmount?: number, remark?: string) => Bill | null
+  markAsUnpaid: (id: string) => Bill | null
   
   // 统计
   getTotalPendingAmount: () => number
@@ -61,7 +63,7 @@ interface MonthlyBillState {
 
 // 生成唯一 ID
 const generateId = () => {
-  return `mbill_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  return `bill_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
 
 // 获取当前时间字符串
@@ -69,32 +71,24 @@ const getCurrentTime = () => {
   return new Date().toISOString()
 }
 
-// 根据租约生成账单月份列表
-const generateBillMonths = (startDate: string, endDate: string): string[] => {
-  const months: string[] = []
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  
-  let current = new Date(start.getFullYear(), start.getMonth(), 1)
-  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1)
-  
-  while (current <= endMonth) {
-    months.push(current.toISOString().slice(0, 7))
-    current.setMonth(current.getMonth() + 1)
-  }
-  
-  return months
+// 计算某日期N个月后的日期
+const addMonths = (dateStr: string, months: number): string => {
+  const date = new Date(dateStr)
+  date.setMonth(date.getMonth() + months)
+  // 如果目标月份没有对应的日期（如1月31日+1个月），会自动调整到下个月最后一天
+  return date.toISOString().split('T')[0]
 }
 
-// 根据账单月份和交租日生成应收日期
-const generateDueDate = (billMonth: string, paymentDay: number): string => {
-  const [year, month] = billMonth.split('-').map(Number)
-  const day = Math.min(paymentDay, 28) // 确保日期有效
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+// 计算某日期N个月后的前一天（用于计算周期结束日期）
+const addMonthsMinusOneDay = (dateStr: string, months: number): string => {
+  const date = new Date(dateStr)
+  date.setMonth(date.getMonth() + months)
+  date.setDate(date.getDate() - 1)
+  return date.toISOString().split('T')[0]
 }
 
 // 判断账单是否逾期
-export const isBillOverdue = (bill: MonthlyBill): boolean => {
+export const isBillOverdue = (bill: Bill): boolean => {
   if (bill.status === 'paid') return false
   const today = new Date().toISOString().split('T')[0]
   return bill.due_date < today
@@ -110,7 +104,63 @@ export const getDaysUntilDue = (dueDate: string): number => {
   return diff
 }
 
-export const useMonthlyBillStore = create<MonthlyBillState>()(
+// 根据租约生成账单
+const generateBillsFromLease = (lease: Lease): Omit<Bill, 'id' | 'created_at' | 'updated_at'>[] => {
+  const bills: Omit<Bill, 'id' | 'created_at' | 'updated_at'>[] = []
+  const months = paymentMethodConfig[lease.payment_method].months
+  const amount = lease.monthly_rent * months
+  
+  let currentDate = lease.start_date
+  let periodIndex = 1
+  
+  while (true) {
+    const periodStart = currentDate
+    const periodEnd = addMonthsMinusOneDay(currentDate, months)
+    const dueDate = currentDate // 应收日期就是周期开始日期
+    
+    // 如果周期结束日期超过租约结束日期，则调整
+    const actualPeriodEnd = periodEnd > lease.end_date ? lease.end_date : periodEnd
+    
+    // 如果周期开始日期已经超过租约结束日期，停止生成
+    if (periodStart > lease.end_date) break
+    
+    bills.push({
+      lease_id: lease.id,
+      property_id: lease.property_id,
+      period_index: periodIndex,
+      period_start: periodStart,
+      period_end: actualPeriodEnd,
+      due_date: dueDate,
+      amount: amount,
+      status: 'pending',
+      paid_at: null,
+      paid_amount: null,
+      remark: null,
+    })
+    
+    // 计算下一个周期开始日期
+    currentDate = addMonths(currentDate, months)
+    periodIndex++
+  }
+  
+  return bills
+}
+
+// 格式化账单周期显示文本
+export const formatBillPeriod = (periodStart: string, periodEnd: string, paymentMethod: PaymentMethod): string => {
+  const start = new Date(periodStart)
+  const end = new Date(periodEnd)
+  
+  const formatDate = (date: Date) => `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`
+  
+  if (paymentMethod === 'monthly') {
+    return `${formatDate(start)}月租`
+  }
+  
+  return `${formatDate(start)} - ${formatDate(end)}`
+}
+
+export const useBillStore = create<BillState>()(
   persist(
     (set, get) => ({
       bills: [],
@@ -118,7 +168,7 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
       // 添加账单
       addBill: (billData) => {
         const now = getCurrentTime()
-        const newBill: MonthlyBill = {
+        const newBill: Bill = {
           ...billData,
           id: generateId(),
           created_at: now,
@@ -134,7 +184,7 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
 
       // 更新账单
       updateBill: (id, data) => {
-        let updatedBill: MonthlyBill | null = null
+        let updatedBill: Bill | null = null
         
         set((state) => ({
           bills: state.bills.map(b => {
@@ -171,27 +221,17 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
 
       // 根据租约生成账单
       generateBillsForLease: (lease) => {
-        const months = generateBillMonths(lease.start_date, lease.end_date)
-        const generatedBills: MonthlyBill[] = []
+        const billDataList = generateBillsFromLease(lease)
+        const generatedBills: Bill[] = []
         
-        for (const month of months) {
-          // 检查是否已存在该月份的账单
+        for (const billData of billDataList) {
+          // 检查是否已存在该期的账单
           const exists = get().bills.some(
-            b => b.lease_id === lease.id && b.bill_month === month
+            b => b.lease_id === lease.id && b.period_index === billData.period_index
           )
           
           if (!exists) {
-            const bill = get().addBill({
-              lease_id: lease.id,
-              property_id: lease.property_id,
-              bill_month: month,
-              due_date: generateDueDate(month, lease.payment_day),
-              amount: lease.monthly_rent,
-              status: 'pending',
-              paid_at: null,
-              paid_amount: null,
-              remark: null,
-            })
+            const bill = get().addBill(billData)
             generatedBills.push(bill)
           }
         }
@@ -201,7 +241,7 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
 
       // 根据租约查询账单
       getBillsByLease: (leaseId) => {
-        return get().bills.filter(b => b.lease_id === leaseId)
+        return get().bills.filter(b => b.lease_id === leaseId).sort((a, b) => a.period_index - b.period_index)
       },
 
       // 根据房源查询账单
@@ -238,7 +278,7 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
 
       // 标记为已收款
       markAsPaid: (id, paidAmount, remark) => {
-        let updatedBill: MonthlyBill | null = null
+        let updatedBill: Bill | null = null
         const now = getCurrentTime()
         
         set((state) => ({
@@ -263,7 +303,7 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
 
       // 标记为未收款
       markAsUnpaid: (id) => {
-        let updatedBill: MonthlyBill | null = null
+        let updatedBill: Bill | null = null
         
         set((state) => ({
           bills: state.bills.map(b => {
@@ -300,11 +340,11 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
           .reduce((sum, b) => sum + b.amount, 0)
       },
 
-      // 获取本月预期收入
+      // 获取本月预期收入（本月应收的账单）
       getMonthlyIncome: () => {
         const currentMonth = new Date().toISOString().slice(0, 7)
         return get().bills
-          .filter(b => b.bill_month === currentMonth)
+          .filter(b => b.due_date.startsWith(currentMonth))
           .reduce((sum, b) => sum + b.amount, 0)
       },
 
@@ -314,7 +354,7 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
       },
     }),
     {
-      name: 'monthly-bill-storage',
+      name: 'bill-storage',
       storage: createJSONStorage(() => ({
         getItem: (name) => {
           try {
@@ -327,14 +367,14 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
           try {
             Taro.setStorageSync(name, value)
           } catch (e) {
-            console.error('月度账单存储失败', e)
+            console.error('账单存储失败', e)
           }
         },
         removeItem: (name) => {
           try {
             Taro.removeStorageSync(name)
           } catch (e) {
-            console.error('删除月度账单存储失败', e)
+            console.error('删除账单存储失败', e)
           }
         },
       })),
@@ -343,28 +383,28 @@ export const useMonthlyBillStore = create<MonthlyBillState>()(
 )
 
 // 导出便捷方法
-export const monthlyBillService = {
-  add: (data: Omit<MonthlyBill, 'id' | 'created_at' | 'updated_at'>) => 
-    useMonthlyBillStore.getState().addBill(data),
+export const billService = {
+  add: (data: Omit<Bill, 'id' | 'created_at' | 'updated_at'>) => 
+    useBillStore.getState().addBill(data),
   
-  update: (id: string, data: Partial<MonthlyBill>) => 
-    useMonthlyBillStore.getState().updateBill(id, data),
+  update: (id: string, data: Partial<Bill>) => 
+    useBillStore.getState().updateBill(id, data),
   
   delete: (id: string) => 
-    useMonthlyBillStore.getState().deleteBill(id),
+    useBillStore.getState().deleteBill(id),
   
   get: (id: string) => 
-    useMonthlyBillStore.getState().getBill(id),
+    useBillStore.getState().getBill(id),
   
   getByLease: (leaseId: string) => 
-    useMonthlyBillStore.getState().getBillsByLease(leaseId),
+    useBillStore.getState().getBillsByLease(leaseId),
   
   getByProperty: (propertyId: string) => 
-    useMonthlyBillStore.getState().getBillsByProperty(propertyId),
+    useBillStore.getState().getBillsByProperty(propertyId),
   
   markPaid: (id: string, paidAmount?: number, remark?: string) => 
-    useMonthlyBillStore.getState().markAsPaid(id, paidAmount, remark),
+    useBillStore.getState().markAsPaid(id, paidAmount, remark),
   
   generateForLease: (lease: Lease) =>
-    useMonthlyBillStore.getState().generateBillsForLease(lease),
+    useBillStore.getState().generateBillsForLease(lease),
 }
