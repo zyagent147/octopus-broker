@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useCustomerStore } from '@/stores/customer'
+import { useReminderStore } from '@/stores/reminder'
 
 interface FormData {
   name: string
@@ -48,6 +49,10 @@ export default function CustomerFormPage() {
   const getCustomer = useCustomerStore(state => state.getCustomer)
   const addCustomer = useCustomerStore(state => state.addCustomer)
   const updateCustomer = useCustomerStore(state => state.updateCustomer)
+  
+  // 提醒操作方法
+  const addBirthdayReminder = useReminderStore(state => state.addBirthdayReminder)
+  const addContractReminder = useReminderStore(state => state.addContractReminder)
 
   useEffect(() => {
     if (customerId) {
@@ -101,12 +106,35 @@ export default function CustomerFormPage() {
         reminder_days_birthday: parseInt(formData.reminder_days_birthday) || 3,
       }
 
+      let savedCustomerId = customerId
+      
       if (isEdit) {
         updateCustomer(customerId!, submitData)
         Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
-        addCustomer(submitData)
+        const newCustomer = addCustomer(submitData)
+        savedCustomerId = newCustomer.id
         Taro.showToast({ title: '添加成功', icon: 'success' })
+      }
+
+      // 创建生日提醒
+      if (submitData.birthday && submitData.reminder_days_birthday > 0) {
+        addBirthdayReminder(
+          savedCustomerId!,
+          submitData.name,
+          submitData.birthday,
+          submitData.reminder_days_birthday
+        )
+      }
+
+      // 创建合同到期提醒
+      if (submitData.contract_end_date && submitData.reminder_days_contract > 0) {
+        addContractReminder(
+          savedCustomerId!,
+          submitData.name,
+          submitData.contract_end_date,
+          submitData.reminder_days_contract
+        )
       }
 
       setTimeout(() => {

@@ -1,11 +1,12 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { Search, Plus, Phone, Calendar, Users } from 'lucide-react-taro'
+import { Search, Plus, Phone, Calendar, Users, Bell, X, Check, Gift, FileText, DollarSign } from 'lucide-react-taro'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCustomerStore } from '@/stores/customer'
+import { useReminderStore, shouldRemind, getDaysUntilDue, type Reminder } from '@/stores/reminder'
 
 const statusMap = {
   pending: { label: '待跟进', color: 'bg-orange-100 text-orange-600' },
@@ -19,6 +20,12 @@ const contractTypeMap = {
   buy: '购房',
 }
 
+const reminderTypeConfig = {
+  birthday: { label: '生日', icon: Gift, color: '#ec4899', bgColor: '#fdf2f8' },
+  contract: { label: '合同到期', icon: FileText, color: '#f59e0b', bgColor: '#fffbeb' },
+  bill: { label: '账单日', icon: DollarSign, color: '#10b981', bgColor: '#ecfdf5' },
+}
+
 export default function CustomersPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -26,6 +33,14 @@ export default function CustomersPage() {
   // 从本地存储获取客户列表
   const customers = useCustomerStore(state => state.customers)
   const searchCustomers = useCustomerStore(state => state.searchCustomers)
+  
+  // 提醒相关
+  const reminders = useReminderStore(state => state.reminders)
+  const dismissReminder = useReminderStore(state => state.dismissReminder)
+  const completeReminder = useReminderStore(state => state.completeReminder)
+
+  // 获取需要显示的提醒
+  const activeReminders = reminders.filter(shouldRemind)
 
   // 搜索过滤
   const searchedCustomers = searchKeyword 
@@ -45,8 +60,95 @@ export default function CustomersPage() {
     Taro.navigateTo({ url: `/pages/customers/detail/index?id=${customerId}` })
   }
 
+  const handleReminderClick = (reminder: Reminder) => {
+    // 跳转到相关详情页
+    if (reminder.type === 'bill') {
+      Taro.navigateTo({ url: `/pages/properties/detail/index?id=${reminder.related_id}` })
+    } else {
+      Taro.navigateTo({ url: `/pages/customers/detail/index?id=${reminder.related_id}` })
+    }
+  }
+
+  const handleDismiss = (reminderId: string, e: any) => {
+    e.stopPropagation()
+    dismissReminder(reminderId)
+    Taro.showToast({ title: '已关闭提醒', icon: 'success' })
+  }
+
+  const handleComplete = (reminderId: string, e: any) => {
+    e.stopPropagation()
+    completeReminder(reminderId)
+    Taro.showToast({ title: '已标记完成', icon: 'success' })
+  }
+
   return (
     <View className="flex flex-col h-full bg-gray-50">
+      {/* 提醒横幅 */}
+      {activeReminders.length > 0 && (
+        <View className="bg-gradient-to-r from-sky-500 to-blue-500 px-4 py-3">
+          <View className="flex items-center justify-between mb-2">
+            <View className="flex items-center gap-2">
+              <Bell size={18} color="#fff" />
+              <Text className="text-white font-medium">即将到期提醒 ({activeReminders.length})</Text>
+            </View>
+          </View>
+          <ScrollView scrollX className="whitespace-nowrap">
+            <View className="flex gap-2 pb-1">
+              {activeReminders.map((reminder) => {
+                const config = reminderTypeConfig[reminder.type]
+                const IconComponent = config.icon
+                const daysLeft = getDaysUntilDue(reminder.due_date)
+                
+                return (
+                  <View
+                    key={reminder.id}
+                    className="inline-flex bg-white rounded-xl p-3 mr-2"
+                    style={{ minWidth: '200px' }}
+                    onClick={() => handleReminderClick(reminder)}
+                  >
+                    <View className="flex items-start gap-2">
+                      <View 
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: config.bgColor }}
+                      >
+                        <IconComponent size={20} color={config.color} />
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <View className="flex items-center gap-1">
+                          <Text className="text-xs text-gray-500">{config.label}</Text>
+                          <Badge 
+                            className={`text-xs px-1 py-0 rounded ${daysLeft <= 1 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}
+                          >
+                            {daysLeft === 0 ? '今天' : `${daysLeft}天后`}
+                          </Badge>
+                        </View>
+                        <Text className="text-sm font-medium text-gray-800 truncate">
+                          {reminder.related_name}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="flex gap-1 ml-2">
+                      <View 
+                        className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center"
+                        onClick={(e) => handleDismiss(reminder.id, e)}
+                      >
+                        <X size={14} color="#666" />
+                      </View>
+                      <View 
+                        className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center"
+                        onClick={(e) => handleComplete(reminder.id, e)}
+                      >
+                        <Check size={14} color="#10b981" />
+                      </View>
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
       {/* 搜索栏 */}
       <View className="bg-white px-4 py-3 border-b border-gray-100">
         <View className="flex items-center gap-2">

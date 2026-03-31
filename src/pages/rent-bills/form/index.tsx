@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { User, Phone, DollarSign } from 'lucide-react-taro'
+import { User, Phone, DollarSign, Bell } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useRentBillStore } from '@/stores/rentBill'
+import { useReminderStore } from '@/stores/reminder'
+import { usePropertyStore } from '@/stores/property'
 
 interface RentBillForm {
   tenant_name: string
@@ -14,6 +16,7 @@ interface RentBillForm {
   payment_cycle: 'monthly' | 'quarterly' | 'custom'
   custom_days: string
   bill_date: string
+  reminder_days: string
 }
 
 const initialForm: RentBillForm = {
@@ -23,6 +26,7 @@ const initialForm: RentBillForm = {
   payment_cycle: 'monthly',
   custom_days: '',
   bill_date: '1',
+  reminder_days: '3',
 }
 
 const paymentCycleOptions = [
@@ -48,6 +52,10 @@ export default function RentBillFormPage() {
   const getBill = useRentBillStore(state => state.getBill)
   const addBill = useRentBillStore(state => state.addBill)
   const updateBill = useRentBillStore(state => state.updateBill)
+  const getProperty = usePropertyStore(state => state.getProperty)
+  
+  // 提醒存储
+  const addBillReminder = useReminderStore(state => state.addBillReminder)
 
   useEffect(() => {
     if (id) {
@@ -65,6 +73,7 @@ export default function RentBillFormPage() {
         payment_cycle: bill.payment_cycle || 'monthly',
         custom_days: bill.custom_days?.toString() || '',
         bill_date: bill.bill_date?.toString() || '1',
+        reminder_days: '3',
       })
     } else {
       Taro.showToast({ title: '账单不存在', icon: 'none' })
@@ -124,12 +133,43 @@ export default function RentBillFormPage() {
         remark: null,
       }
 
+      let savedBillId = id
+      
       if (isEdit) {
         updateBill(id!, billData)
         Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
-        addBill(billData)
+        const newBill = addBill(billData)
+        savedBillId = newBill.id
         Taro.showToast({ title: '创建成功', icon: 'success' })
+      }
+
+      // 创建账单提醒
+      const reminderDays = parseInt(form.reminder_days, 10) || 3
+      if (reminderDays > 0) {
+        const property = getProperty(propertyId)
+        const propertyName = property ? `${property.community}${property.building || ''}` : '房源'
+        
+        // 计算下次收款日期
+        const now = new Date()
+        let nextDueDate = new Date()
+        nextDueDate.setDate(parseInt(form.bill_date, 10))
+        nextDueDate.setHours(0, 0, 0, 0)
+        
+        if (nextDueDate <= now) {
+          if (form.payment_cycle === 'monthly') {
+            nextDueDate.setMonth(nextDueDate.getMonth() + 1)
+          } else if (form.payment_cycle === 'quarterly') {
+            nextDueDate.setMonth(nextDueDate.getMonth() + 3)
+          }
+        }
+        
+        addBillReminder(
+          savedBillId!,
+          propertyName,
+          nextDueDate.toISOString().split('T')[0],
+          reminderDays
+        )
       }
       
       setTimeout(() => Taro.navigateBack(), 1500)
@@ -253,36 +293,48 @@ export default function RentBillFormPage() {
             </CardContent>
           </Card>
 
-          {/* 提示 */}
-          <View className="p-3 bg-blue-50 rounded-lg">
-            <Text className="text-xs text-blue-600">
-              💡 下次应收日期会根据账单日和付款周期自动计算
-            </Text>
+          {/* 提醒设置 */}
+          <Card>
+            <CardHeader>
+              <View className="flex items-center gap-2">
+                <Bell size={18} color="#3b82f6" />
+                <CardTitle>提醒设置</CardTitle>
+              </View>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <View>
+                <Text className="block text-sm text-gray-600 mb-2">提前提醒天数</Text>
+                <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3">
+                  <Input
+                    type="number"
+                    className="flex-1 bg-transparent"
+                    placeholder="请输入提前提醒天数"
+                    value={form.reminder_days}
+                    onInput={(e) => handleInputChange('reminder_days', e.detail.value)}
+                  />
+                  <Text className="text-sm text-gray-500">天</Text>
+                </View>
+                <Text className="block text-xs text-gray-400 mt-2">
+                  将在账单日前指定天数提醒您收租
+                </Text>
+              </View>
+            </CardContent>
+          </Card>
+
+          {/* 提交按钮 */}
+          <View className="pb-6">
+            <Button
+              className="w-full h-12 bg-sky-500 rounded-xl"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              <Text className="text-white text-base font-medium">
+                {submitting ? '保存中...' : '保存'}
+              </Text>
+            </Button>
           </View>
         </View>
       </ScrollView>
-
-      {/* 底部提交按钮 */}
-      <View 
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: '12px 16px',
-          backgroundColor: '#fff',
-          borderTop: '1px solid #e5e7eb',
-          paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
-        }}
-      >
-        <Button 
-          className="w-full bg-sky-500 text-white rounded-xl" 
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
-          <Text className="text-white">{submitting ? '保存中...' : (isEdit ? '保存修改' : '创建账单')}</Text>
-        </Button>
-      </View>
     </View>
   )
 }
