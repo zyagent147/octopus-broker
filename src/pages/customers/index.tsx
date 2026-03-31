@@ -23,7 +23,7 @@ const contractTypeMap = {
 const reminderTypeConfig = {
   birthday: { label: '生日', icon: Gift, color: '#ec4899', bgColor: '#fdf2f8' },
   contract: { label: '合同到期', icon: FileText, color: '#f59e0b', bgColor: '#fffbeb' },
-  bill: { label: '账单日', icon: DollarSign, color: '#10b981', bgColor: '#ecfdf5' },
+  rent: { label: '收租', icon: DollarSign, color: '#10b981', bgColor: '#ecfdf5' },
 }
 
 export default function CustomersPage() {
@@ -75,7 +75,7 @@ export default function CustomersPage() {
 
   const handleReminderClick = (reminder: Reminder) => {
     // 跳转到相关详情页
-    if (reminder.type === 'bill') {
+    if (reminder.type === 'rent') {
       Taro.navigateTo({ url: `/pages/properties/detail/index?id=${reminder.related_id}` })
     } else {
       Taro.navigateTo({ url: `/pages/customers/detail/index?id=${reminder.related_id}` })

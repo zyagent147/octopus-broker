@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import Taro from '@tarojs/taro'
 
 // 提醒类型
-export type ReminderType = 'birthday' | 'contract' | 'bill'
+export type ReminderType = 'birthday' | 'contract' | 'rent' // 收租提醒改为 rent
 
 // 提醒状态
 export type ReminderStatus = 'pending' | 'dismissed' | 'completed'
@@ -44,7 +44,7 @@ interface ReminderState {
   // 批量操作
   addBirthdayReminder: (customerId: string, customerName: string, birthday: string, advanceDays: number) => Reminder
   addContractReminder: (customerId: string, customerName: string, contractEndDate: string, advanceDays: number) => Reminder
-  addBillReminder: (billId: string, propertyName: string, dueDate: string, advanceDays: number) => Reminder
+  addRentReminder: (propertyId: string, propertyName: string, dueDate: string, paymentDay: number, advanceDays: number) => Reminder
   
   // 清理过期提醒
   cleanExpiredReminders: () => void
@@ -214,13 +214,13 @@ export const useReminderStore = create<ReminderState>()(
         })
       },
 
-      // 添加账单提醒
-      addBillReminder: (billId, propertyName, dueDate, advanceDays) => {
+      // 添加收租提醒
+      addRentReminder: (propertyId, propertyName, dueDate, paymentDay, advanceDays) => {
         return get().addReminder({
-          type: 'bill',
-          title: '账单日提醒',
-          description: `${propertyName} 的房租即将到期`,
-          related_id: billId,
+          type: 'rent',
+          title: '收租提醒',
+          description: `${propertyName}的房源，本月交租日为${paymentDay}号，还有${advanceDays}天到期，请记得提醒业主收房租`,
+          related_id: propertyId,
           related_name: propertyName,
           due_date: dueDate,
           advance_days: advanceDays,

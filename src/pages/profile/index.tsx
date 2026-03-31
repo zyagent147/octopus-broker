@@ -5,9 +5,10 @@ import { useMemo } from 'react'
 import { useUserStore } from '@/stores/user'
 import { useCustomerStore } from '@/stores/customer'
 import { usePropertyStore } from '@/stores/property'
-import { useRentBillStore, calculateBillStatus } from '@/stores/rentBill'
+import { useLeaseStore } from '@/stores/lease'
+import { useMonthlyBillStore, isBillOverdue } from '@/stores/monthlyBill'
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, FileText, LogOut, ChevronRight, Shield, DollarSign } from 'lucide-react-taro'
+import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
 
 // 默认头像 - 使用 import 导入
 // @ts-ignore
@@ -20,7 +21,8 @@ const ProfilePage: FC = () => {
   // 从本地存储获取原始数组
   const customers = useCustomerStore((state) => state.customers)
   const properties = usePropertyStore((state) => state.properties)
-  const bills = useRentBillStore((state) => state.bills)
+  const leases = useLeaseStore((state) => state.leases)
+  const bills = useMonthlyBillStore((state) => state.bills)
   
   // 使用 useMemo 缓存所有统计数据
   const stats = useMemo(() => {
@@ -45,22 +47,26 @@ const ProfilePage: FC = () => {
              createdDate.getFullYear() === currentYear
     }).length
 
-    // 待收款账单数量和金额（使用新的状态计算）
-    const pendingBills = bills.filter(b => calculateBillStatus(b) !== 'paid')
-    const overdueBills = bills.filter(b => calculateBillStatus(b) === 'overdue')
+    // 有效租约数量
+    const activeLeases = leases.filter(l => l.status === 'active').length
+
+    // 待收款账单
+    const pendingBills = bills.filter(b => b.status === 'pending')
+    const overdueBills = bills.filter(b => isBillOverdue(b))
     const totalPendingAmount = pendingBills.reduce((sum, b) => sum + b.amount, 0)
 
     return {
       totalCustomers: customers.length,
       totalProperties: properties.length,
       rentedProperties,
+      activeLeases,
       pendingBills: pendingBills.length,
       overdueBills: overdueBills.length,
       pendingAmount: totalPendingAmount,
       monthNewCustomers,
       monthNewProperties,
     }
-  }, [customers, properties, bills])
+  }, [customers, properties, leases, bills])
 
   const handleLogout = () => {
     Taro.showModal({
@@ -76,12 +82,6 @@ const ProfilePage: FC = () => {
   }
 
   const menuItems = [
-    { 
-      icon: DollarSign, 
-      label: '应收账单', 
-      action: () => Taro.navigateTo({ url: '/pages/bills/index' }),
-      badge: stats.pendingBills > 0 ? `${stats.pendingBills}` : undefined,
-    },
     { icon: FileText, label: '隐私协议', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
     { icon: Settings, label: '全局提醒设置', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
   ]
@@ -173,10 +173,10 @@ const ProfilePage: FC = () => {
               </View>
               <View className="w-px bg-gray-200" />
               <View className="text-center">
-                <Text className="block text-2xl font-bold text-red-500">
-                  {stats.pendingBills}
+                <Text className="block text-2xl font-bold text-green-500">
+                  {stats.activeLeases}
                 </Text>
-                <Text className="block text-xs text-gray-500 mt-1">待收账单</Text>
+                <Text className="block text-xs text-gray-500 mt-1">有效租约</Text>
               </View>
             </View>
             {stats.pendingAmount > 0 && (
@@ -223,13 +223,8 @@ const ProfilePage: FC = () => {
                 className={`flex items-center py-3 ${index > 0 ? 'border-t border-gray-100' : ''}`}
                 onClick={item.action}
               >
-                <item.icon size={20} color={item.label === '应收账单' ? '#3b82f6' : '#595959'} />
+                <item.icon size={20} color="#595959" />
                 <Text className="flex-1 ml-3 text-sm text-gray-700">{item.label}</Text>
-                {item.badge && (
-                  <View className="px-2 py-1 rounded-full bg-red-500 mr-2">
-                    <Text className="text-white text-xs">{item.badge}</Text>
-                  </View>
-                )}
                 <ChevronRight size={16} color="#8c8c8c" />
               </View>
             ))}
@@ -241,11 +236,11 @@ const ProfilePage: FC = () => {
       <View className="px-4 mt-4">
         <View className="bg-amber-50 rounded-xl p-4">
           <Text className="text-sm text-amber-700">
-            💡 应收账单功能使用说明：{'\n'}
-            1. 在房源详情页添加账单（需设置开始日期）{'\n'}
-            2. 系统会自动计算下次收款日期{'\n'}
-            3. 标记收款后会自动生成收款记录{'\n'}
-            4. 支持查看历史收款记录
+            💡 租约管理功能使用说明：{'\n'}
+            1. 将房源状态改为「已租」{'\n'}
+            2. 在房源详情页添加租约信息{'\n'}
+            3. 系统自动生成每月账单{'\n'}
+            4. 交租日前自动推送提醒
           </Text>
         </View>
       </View>
