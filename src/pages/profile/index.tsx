@@ -3,7 +3,9 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import type { FC } from 'react'
 import { useState } from 'react'
 import { useUserStore } from '@/stores/user'
-import { Network } from '@/network'
+import { useCustomerStore } from '@/stores/customer'
+import { usePropertyStore } from '@/stores/property'
+import { useRentBillStore } from '@/stores/rentBill'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
@@ -15,25 +17,62 @@ import defaultAvatar from '@/assets/章鱼经纪人.jpeg'
 const ProfilePage: FC = () => {
   const user = useUserStore((state) => state.user)
   const logout = useUserStore((state) => state.logout)
+  
+  // 从本地存储获取数据
+  const customers = useCustomerStore((state) => state.customers)
+  const properties = usePropertyStore((state) => state.properties)
+  const bills = useRentBillStore((state) => state.bills)
+  
   const [stats, setStats] = useState({
+    totalCustomers: 0,
+    totalProperties: 0,
+    rentedProperties: 0,
+    pendingBills: 0,
+    pendingAmount: 0,
     monthNewCustomers: 0,
-    monthRentedProperties: 0,
     monthNewProperties: 0,
   })
 
   useDidShow(() => {
-    loadStats()
+    calculateStats()
   })
 
-  const loadStats = async () => {
-    try {
-      const result = await Network.request<{ data: any }>({
-        url: '/api/users/stats',
-      })
-      setStats(result.data)
-    } catch (error) {
-      console.error('加载统计失败', error)
-    }
+  // 从本地存储计算统计数据
+  const calculateStats = () => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    // 本月新增客户
+    const monthNewCustomers = customers.filter(c => {
+      const createdDate = new Date(c.created_at)
+      return createdDate.getMonth() === currentMonth && 
+             createdDate.getFullYear() === currentYear
+    }).length
+
+    // 已租房源数量
+    const rentedProperties = properties.filter(p => p.status === 'rented').length
+
+    // 本月新增房源
+    const monthNewProperties = properties.filter(p => {
+      const createdDate = new Date(p.created_at)
+      return createdDate.getMonth() === currentMonth && 
+             createdDate.getFullYear() === currentYear
+    }).length
+
+    // 待收款账单数量和金额
+    const pendingBills = bills.filter(b => b.status === 'pending')
+    const totalPendingAmount = pendingBills.reduce((sum, b) => sum + b.amount, 0)
+
+    setStats({
+      totalCustomers: customers.length,
+      totalProperties: properties.length,
+      rentedProperties,
+      pendingBills: pendingBills.length,
+      pendingAmount: totalPendingAmount,
+      monthNewCustomers,
+      monthNewProperties,
+    })
   }
 
   const handleLogout = () => {
@@ -89,7 +128,7 @@ const ProfilePage: FC = () => {
         </View>
       </View>
 
-      {/* 数据统计 */}
+      {/* 数据统计 - 本月数据 */}
       <View className="px-4 -mt-4">
         <Card>
           <CardContent className="py-4">
@@ -104,7 +143,7 @@ const ProfilePage: FC = () => {
               <View className="w-px bg-gray-200" />
               <View className="text-center">
                 <Text className="block text-2xl font-bold text-green-500">
-                  {stats.monthRentedProperties}
+                  {stats.rentedProperties}
                 </Text>
                 <Text className="block text-xs text-gray-500 mt-1">在租房源</Text>
               </View>
@@ -116,6 +155,47 @@ const ProfilePage: FC = () => {
                 <Text className="block text-xs text-gray-500 mt-1">新增房源</Text>
               </View>
             </View>
+          </CardContent>
+        </Card>
+      </View>
+
+      {/* 总体统计 */}
+      <View className="px-4 mt-4">
+        <Card>
+          <CardContent className="py-4">
+            <Text className="block text-sm text-gray-500 mb-3">数据概览</Text>
+            <View className="flex justify-around">
+              <View className="text-center">
+                <Text className="block text-2xl font-bold text-sky-500">
+                  {stats.totalCustomers}
+                </Text>
+                <Text className="block text-xs text-gray-500 mt-1">总客户</Text>
+              </View>
+              <View className="w-px bg-gray-200" />
+              <View className="text-center">
+                <Text className="block text-2xl font-bold text-purple-500">
+                  {stats.totalProperties}
+                </Text>
+                <Text className="block text-xs text-gray-500 mt-1">总房源</Text>
+              </View>
+              <View className="w-px bg-gray-200" />
+              <View className="text-center">
+                <Text className="block text-2xl font-bold text-red-500">
+                  {stats.pendingBills}
+                </Text>
+                <Text className="block text-xs text-gray-500 mt-1">待收账单</Text>
+              </View>
+            </View>
+            {stats.pendingAmount > 0 && (
+              <View className="mt-3 pt-3 border-t border-gray-100">
+                <View className="flex items-center justify-center gap-2">
+                  <Text className="text-sm text-gray-500">待收款总额：</Text>
+                  <Text className="text-lg font-bold text-red-500">
+                    ¥{stats.pendingAmount.toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+            )}
           </CardContent>
         </Card>
       </View>
@@ -159,6 +239,18 @@ const ProfilePage: FC = () => {
         </Card>
       </View>
 
+      {/* 使用提示 */}
+      <View className="px-4 mt-4">
+        <View className="bg-amber-50 rounded-xl p-4">
+          <Text className="text-sm text-amber-700">
+            💡 应收账单功能使用说明：{'\n'}
+            1. 添加房源时选择「已租」状态{'\n'}
+            2. 在房源详情页可以看到「应收账单」模块{'\n'}
+            3. 点击添加账单即可创建收租提醒
+          </Text>
+        </View>
+      </View>
+
       {/* 退出登录按钮 */}
       <View className="px-4 mt-6">
         <Button
@@ -175,6 +267,7 @@ const ProfilePage: FC = () => {
       {/* 版本信息 */}
       <View className="text-center mt-8 mb-4">
         <Text className="block text-xs text-gray-400">章鱼经纪人 v1.0.0</Text>
+        <Text className="block text-xs text-gray-300 mt-1">数据存储在您的手机本地</Text>
       </View>
     </View>
   )
