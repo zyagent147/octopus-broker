@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { Camera, X } from 'lucide-react-taro'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePropertyStore } from '@/stores/property'
+import { Input } from '@/components/ui/input'
 
 interface PropertyForm {
   community: string
@@ -45,13 +43,20 @@ export default function PropertyFormPage() {
   const updateProperty = usePropertyStore(state => state.updateProperty)
 
   useEffect(() => {
+    console.log('=== 房源表单页面加载 ===')
+    console.log('id:', id)
+    console.log('isEdit:', isEdit)
+    
     if (id) {
       loadProperty()
     }
   }, [id])
 
   const loadProperty = () => {
+    console.log('加载房源数据:', id)
     const property = getProperty(id!)
+    console.log('房源数据:', property)
+    
     if (property) {
       setForm({
         community: property.community || '',
@@ -71,6 +76,7 @@ export default function PropertyFormPage() {
   }
 
   const handleInputChange = (field: keyof PropertyForm, value: string) => {
+    console.log(`输入 ${field}:`, value)
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
@@ -84,14 +90,10 @@ export default function PropertyFormPage() {
 
       Taro.showToast({ title: '处理中...', icon: 'loading' })
 
-      // 图片转存到本地存储（Base64）
       for (const tempFilePath of res.tempFilePaths) {
         try {
-          // 读取图片为 Base64
           const fs = Taro.getFileSystemManager()
           const base64 = fs.readFileSync(tempFilePath, 'base64')
-          
-          // 存储为本地路径（使用临时路径或转为 base64 data URL）
           const localPath = `data:image/jpeg;base64,${base64}`
           
           setForm(prev => ({
@@ -100,7 +102,6 @@ export default function PropertyFormPage() {
           }))
         } catch (e) {
           console.error('处理图片失败:', e)
-          // 如果转存失败，直接使用临时路径
           setForm(prev => ({
             ...prev,
             images: [...prev.images, tempFilePath],
@@ -123,7 +124,10 @@ export default function PropertyFormPage() {
     }))
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
+    console.log('=== 提交房源 ===')
+    console.log('表单数据:', form)
+    
     if (!form.community.trim()) {
       Taro.showToast({ title: '请输入小区名称', icon: 'none' })
       return
@@ -134,36 +138,34 @@ export default function PropertyFormPage() {
       return
     }
 
-    try {
-      setSubmitting(true)
-      
-      const propertyData = {
-        community: form.community.trim(),
-        address: form.address.trim(),
-        building: form.building.trim() || null,
-        layout: form.layout.trim() || null,
-        area: form.area ? parseFloat(form.area) : null,
-        price: form.price ? parseFloat(form.price) : null,
-        status: form.status,
-        images: form.images,
-        remark: form.remark.trim() || null,
-      }
-
-      if (isEdit) {
-        updateProperty(id!, propertyData)
-        Taro.showToast({ title: '更新成功', icon: 'success' })
-      } else {
-        addProperty(propertyData)
-        Taro.showToast({ title: '创建成功', icon: 'success' })
-      }
-      
-      setTimeout(() => Taro.navigateBack(), 1500)
-    } catch (error) {
-      console.error('提交失败:', error)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    } finally {
-      setSubmitting(false)
+    setSubmitting(true)
+    
+    const propertyData = {
+      community: form.community.trim(),
+      address: form.address.trim(),
+      building: form.building.trim() || null,
+      layout: form.layout.trim() || null,
+      area: form.area ? parseFloat(form.area) : null,
+      price: form.price ? parseFloat(form.price) : null,
+      status: form.status,
+      images: form.images,
+      remark: form.remark.trim() || null,
     }
+
+    console.log('准备保存:', propertyData)
+
+    if (isEdit) {
+      const result = updateProperty(id!, propertyData)
+      console.log('更新结果:', result)
+      Taro.showToast({ title: '更新成功', icon: 'success' })
+    } else {
+      const result = addProperty(propertyData)
+      console.log('添加结果:', result)
+      Taro.showToast({ title: '创建成功', icon: 'success' })
+    }
+    
+    setSubmitting(false)
+    setTimeout(() => Taro.navigateBack(), 1500)
   }
 
   return (
@@ -171,174 +173,145 @@ export default function PropertyFormPage() {
       <ScrollView scrollY className="flex-1 p-4">
         <View className="space-y-4">
           {/* 基本信息 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>基本信息</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">小区名称 *</Text>
-                <View className="bg-gray-50 rounded-xl px-4 py-3">
-                  <Input
-                    className="w-full bg-transparent"
-                    placeholder="例如：阳光花园"
-                    value={form.community}
-                    onInput={(e) => handleInputChange('community', e.detail.value)}
-                  />
-                </View>
-              </View>
+          <View className="bg-white rounded-xl p-4">
+            <Text className="text-base font-bold text-gray-800 mb-4">基本信息</Text>
+            
+            {/* 小区名称 */}
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">小区名称 *</Text>
+              <Input
+                placeholder="例如：阳光花园"
+                value={form.community}
+                onInput={(e) => handleInputChange('community', e.detail.value)}
+              />
+            </View>
 
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">楼栋信息</Text>
-                <View className="bg-gray-50 rounded-xl px-4 py-3">
-                  <Input
-                    className="w-full bg-transparent"
-                    placeholder="例如：3栋1单元"
-                    value={form.building}
-                    onInput={(e) => handleInputChange('building', e.detail.value)}
-                  />
-                </View>
-              </View>
+            {/* 楼栋信息 */}
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">楼栋信息</Text>
+              <Input
+                placeholder="例如：3栋1单元"
+                value={form.building}
+                onInput={(e) => handleInputChange('building', e.detail.value)}
+              />
+            </View>
 
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">详细地址 *</Text>
-                <View className="bg-gray-50 rounded-xl px-4 py-3">
-                  <Input
-                    className="w-full bg-transparent"
-                    placeholder="详细地址"
-                    value={form.address}
-                    onInput={(e) => handleInputChange('address', e.detail.value)}
-                  />
-                </View>
-              </View>
+            {/* 详细地址 */}
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">详细地址 *</Text>
+              <Input
+                placeholder="详细地址"
+                value={form.address}
+                onInput={(e) => handleInputChange('address', e.detail.value)}
+              />
+            </View>
 
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">房源状态</Text>
-                <View className="flex flex-wrap gap-2">
-                  {[
-                    { value: 'available', label: '空置' },
-                    { value: 'rented', label: '已租' },
-                    { value: 'sold', label: '已售' },
-                  ].map(item => (
-                    <View
-                      key={item.value}
-                      className={`px-4 py-2 rounded-lg ${
-                        form.status === item.value
-                          ? 'bg-sky-500 text-white'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
-                      onClick={() => handleInputChange('status', item.value)}
-                    >
-                      <Text className={form.status === item.value ? 'text-white' : ''}>
-                        {item.label}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </CardContent>
-          </Card>
-
-          {/* 房源参数 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>房源参数</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <View className="flex gap-4">
-                <View className="flex-1">
-                  <Text className="block text-sm text-gray-600 mb-2">面积(㎡)</Text>
-                  <View className="bg-gray-50 rounded-xl px-4 py-3">
-                    <Input
-                      type="number"
-                      className="w-full bg-transparent"
-                      placeholder="100"
-                      value={form.area}
-                      onInput={(e) => handleInputChange('area', e.detail.value)}
-                    />
-                  </View>
-                </View>
-                <View className="flex-1">
-                  <Text className="block text-sm text-gray-600 mb-2">租金(元/月)</Text>
-                  <View className="bg-gray-50 rounded-xl px-4 py-3">
-                    <Input
-                      type="number"
-                      className="w-full bg-transparent"
-                      placeholder="3000"
-                      value={form.price}
-                      onInput={(e) => handleInputChange('price', e.detail.value)}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">户型</Text>
-                <View className="bg-gray-50 rounded-xl px-4 py-3">
-                  <Input
-                    className="w-full bg-transparent"
-                    placeholder="2室1厅1卫"
-                    value={form.layout}
-                    onInput={(e) => handleInputChange('layout', e.detail.value)}
-                  />
-                </View>
-              </View>
-
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">备注</Text>
-                <View className="bg-gray-50 rounded-xl px-4 py-3">
-                  <Input
-                    className="w-full bg-transparent"
-                    placeholder="房源备注信息"
-                    value={form.remark}
-                    onInput={(e) => handleInputChange('remark', e.detail.value)}
-                  />
-                </View>
-              </View>
-            </CardContent>
-          </Card>
-
-          {/* 房源图片 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>房源图片</CardTitle>
-            </CardHeader>
-            <CardContent>
+            {/* 房源状态 */}
+            <View>
+              <Text className="text-sm text-gray-600 mb-2">房源状态</Text>
               <View className="flex flex-wrap gap-2">
-                {form.images.map((img, index) => (
-                  <View key={index} className="relative">
-                    <Image 
-                      src={img} 
-                      className="w-20 h-20 rounded-lg"
-                      mode="aspectFill"
-                    />
-                    <View 
-                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
-                      onClick={() => handleRemoveImage(index)}
-                    >
-                      <X size={12} color="#fff" />
-                    </View>
+                {[
+                  { value: 'available', label: '空置' },
+                  { value: 'rented', label: '已租' },
+                  { value: 'sold', label: '已售' },
+                ].map(item => (
+                  <View
+                    key={item.value}
+                    className={`px-4 py-2 rounded-lg ${
+                      form.status === item.value
+                        ? 'bg-sky-500'
+                        : 'bg-gray-100'
+                    }`}
+                    onClick={() => handleInputChange('status', item.value as any)}
+                  >
+                    <Text className={form.status === item.value ? 'text-white' : 'text-gray-700'}>
+                      {item.label}
+                    </Text>
                   </View>
                 ))}
-                {form.images.length < 9 && (
-                  <View 
-                    className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center"
-                    onClick={handleChooseImage}
-                  >
-                    <Camera size={24} color="#999" />
-                  </View>
-                )}
               </View>
-              <Text className="block text-xs text-gray-400 mt-2">
-                图片保存在本地，最多9张
-              </Text>
-            </CardContent>
-          </Card>
+            </View>
+          </View>
+
+          {/* 房源参数 */}
+          <View className="bg-white rounded-xl p-4">
+            <Text className="text-base font-bold text-gray-800 mb-4">房源参数</Text>
+            
+            <View className="flex gap-4 mb-4">
+              <View className="flex-1">
+                <Text className="text-sm text-gray-600 mb-2">面积(㎡)</Text>
+                <Input
+                  type="number"
+                  placeholder="100"
+                  value={form.area}
+                  onInput={(e) => handleInputChange('area', e.detail.value)}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm text-gray-600 mb-2">租金(元/月)</Text>
+                <Input
+                  type="number"
+                  placeholder="3000"
+                  value={form.price}
+                  onInput={(e) => handleInputChange('price', e.detail.value)}
+                />
+              </View>
+            </View>
+
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">户型</Text>
+              <Input
+                placeholder="2室1厅1卫"
+                value={form.layout}
+                onInput={(e) => handleInputChange('layout', e.detail.value)}
+              />
+            </View>
+
+            <View>
+              <Text className="text-sm text-gray-600 mb-2">备注</Text>
+              <Input
+                placeholder="房源备注信息"
+                value={form.remark}
+                onInput={(e) => handleInputChange('remark', e.detail.value)}
+              />
+            </View>
+          </View>
+
+          {/* 房源图片 */}
+          <View className="bg-white rounded-xl p-4">
+            <Text className="text-base font-bold text-gray-800 mb-4">房源图片</Text>
+            <View className="flex flex-wrap gap-2">
+              {form.images.map((img, index) => (
+                <View key={index} className="relative">
+                  <Image 
+                    src={img} 
+                    className="w-20 h-20 rounded-lg"
+                    mode="aspectFill"
+                  />
+                  <View 
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
+                    onClick={() => handleRemoveImage(index)}
+                  >
+                    <X size={12} color="#fff" />
+                  </View>
+                </View>
+              ))}
+              {form.images.length < 9 && (
+                <View 
+                  className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center"
+                  onClick={handleChooseImage}
+                >
+                  <Camera size={24} color="#999" />
+                </View>
+              )}
+            </View>
+            <Text className="text-xs text-gray-400 mt-2">图片保存在本地，最多9张</Text>
+          </View>
           
           {/* 提示信息 */}
-          <View className="p-3 bg-blue-50 rounded-lg">
+          <View className="bg-blue-50 rounded-lg p-3">
             <Text className="text-xs text-blue-600">
-              💡 房源数据保存在您的手机本地，不会上传到服务器。卸载应用后数据将丢失，请及时备份重要数据。
+              💡 房源数据保存在您的手机本地，不会上传到服务器。
             </Text>
           </View>
         </View>
@@ -354,16 +327,16 @@ export default function PropertyFormPage() {
           padding: '12px 16px',
           backgroundColor: '#fff',
           borderTop: '1px solid #e5e7eb',
-          paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
         }}
       >
-        <Button 
-          className="w-full bg-sky-500 text-white rounded-xl" 
-          onClick={handleSubmit}
-          disabled={submitting}
+        <View 
+          className={`h-11 rounded-lg flex items-center justify-center ${submitting ? 'bg-gray-300' : 'bg-sky-500'}`}
+          onClick={submitting ? undefined : handleSubmit}
         >
-          <Text className="text-white">{submitting ? '保存中...' : (isEdit ? '保存修改' : '创建房源')}</Text>
-        </Button>
+          <Text className="text-white text-base font-medium">
+            {submitting ? '保存中...' : (isEdit ? '保存修改' : '创建房源')}
+          </Text>
+        </View>
       </View>
     </View>
   )

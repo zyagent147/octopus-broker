@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { User, Phone, DollarSign, Bell, Calendar } from 'lucide-react-taro'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useRentBillStore, calculateNextDueDate } from '@/stores/rentBill'
 import { useReminderStore } from '@/stores/reminder'
 import { usePropertyStore } from '@/stores/property'
+import { Input } from '@/components/ui/input'
 
 interface RentBillForm {
   tenant_name: string
@@ -29,16 +27,10 @@ const initialForm: RentBillForm = {
   reminder_days: '3',
 }
 
-const paymentCycleOptions = [
-  { value: 'monthly', label: '月付' },
-  { value: 'quarterly', label: '季付' },
-  { value: 'custom', label: '自定义' },
-]
+const paymentCycleOptions = ['月付', '季付', '自定义']
+const paymentCycleValues = ['monthly', 'quarterly', 'custom'] as const
 
-const billDateOptions = Array.from({ length: 31 }, (_, i) => ({
-  value: String(i + 1),
-  label: `每月${i + 1}号`,
-}))
+const billDateLabels = Array.from({ length: 31 }, (_, i) => `每月${i + 1}号`)
 
 export default function RentBillFormPage() {
   const router = useRouter()
@@ -54,8 +46,6 @@ export default function RentBillFormPage() {
   const updateBill = useRentBillStore(state => state.updateBill)
   const getProperty = usePropertyStore(state => state.getProperty)
   const updateProperty = usePropertyStore(state => state.updateProperty)
-  
-  // 提醒存储
   const addBillReminder = useReminderStore(state => state.addBillReminder)
 
   // 获取房源信息
@@ -95,25 +85,21 @@ export default function RentBillFormPage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleDateChange = (e: any) => {
-    const index = e.detail.value
-    const selected = billDateOptions[index]
-    if (selected) {
-      console.log('选择账单日:', selected.value)
-      handleInputChange('bill_date', selected.value)
-    }
-  }
-
   const handlePaymentCycleChange = (e: any) => {
     const index = e.detail.value
-    const selected = paymentCycleOptions[index]
-    if (selected) {
-      console.log('选择付款周期:', selected.value)
-      handleInputChange('payment_cycle', selected.value as 'monthly' | 'quarterly' | 'custom')
-    }
+    const value = paymentCycleValues[index]
+    console.log('选择付款周期:', value)
+    handleInputChange('payment_cycle', value)
   }
 
-  const handleSubmit = async () => {
+  const handleBillDateChange = (e: any) => {
+    const index = e.detail.value
+    const value = String(index + 1)
+    console.log('选择账单日:', value)
+    handleInputChange('bill_date', value)
+  }
+
+  const handleSubmit = () => {
     console.log('=== 提交账单 ===')
     console.log('表单数据:', form)
     
@@ -134,82 +120,62 @@ export default function RentBillFormPage() {
       return
     }
 
-    try {
-      setSubmitting(true)
-      
-      const billData = {
-        property_id: propertyId,
-        tenant_name: form.tenant_name.trim() || null,
-        tenant_phone: form.tenant_phone.trim() || null,
-        amount: parseFloat(form.amount),
-        payment_cycle: form.payment_cycle,
-        bill_date: parseInt(form.bill_date, 10),
-        custom_days: form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null,
-        status: 'pending' as const,
-        paid_at: null,
-        remark: null,
-      }
-
-      console.log('准备保存账单数据:', billData)
-
-      let savedBillId = id
-      
-      if (isEdit) {
-        updateBill(id!, billData)
-        console.log('更新账单成功:', id)
-        Taro.showToast({ title: '更新成功', icon: 'success' })
-      } else {
-        const newBill = addBill(billData)
-        savedBillId = newBill.id
-        console.log('创建账单成功:', newBill)
-        Taro.showToast({ title: '创建成功', icon: 'success' })
-        
-        // 如果房源不是已租状态，自动更新为已租
-        if (property && property.status !== 'rented') {
-          updateProperty(propertyId, { status: 'rented' })
-          console.log('已将房源状态更新为已租')
-        }
-      }
-
-      // 创建账单提醒
-      const reminderDays = parseInt(form.reminder_days, 10) || 3
-      if (reminderDays > 0 && savedBillId) {
-        const propertyName = property 
-          ? `${property.community}${property.building ? ' ' + property.building : ''}` 
-          : '房源'
-        
-        // 计算下次收款日期
-        const nextDueDate = calculateNextDueDate(
-          parseInt(form.bill_date, 10),
-          form.payment_cycle,
-          form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null
-        )
-        
-        console.log('创建提醒:', {
-          billId: savedBillId,
-          propertyName,
-          nextDueDate,
-          reminderDays
-        })
-        
-        addBillReminder(
-          savedBillId,
-          propertyName,
-          nextDueDate,
-          reminderDays
-        )
-      }
-      
-      setTimeout(() => {
-        console.log('返回上一页')
-        Taro.navigateBack()
-      }, 1500)
-    } catch (error) {
-      console.error('提交失败:', error)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    } finally {
-      setSubmitting(false)
+    setSubmitting(true)
+    
+    const billData = {
+      property_id: propertyId,
+      tenant_name: form.tenant_name.trim() || null,
+      tenant_phone: form.tenant_phone.trim() || null,
+      amount: parseFloat(form.amount),
+      payment_cycle: form.payment_cycle,
+      bill_date: parseInt(form.bill_date, 10),
+      custom_days: form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null,
+      status: 'pending' as const,
+      paid_at: null,
+      remark: null,
     }
+
+    console.log('准备保存账单数据:', billData)
+
+    let savedBillId = id
+    
+    if (isEdit) {
+      updateBill(id!, billData)
+      console.log('更新账单成功:', id)
+      Taro.showToast({ title: '更新成功', icon: 'success' })
+    } else {
+      const newBill = addBill(billData)
+      savedBillId = newBill.id
+      console.log('创建账单成功:', newBill)
+      Taro.showToast({ title: '创建成功', icon: 'success' })
+      
+      // 如果房源不是已租状态，自动更新为已租
+      if (property && property.status !== 'rented') {
+        updateProperty(propertyId, { status: 'rented' })
+        console.log('已将房源状态更新为已租')
+      }
+    }
+
+    // 创建账单提醒
+    const reminderDays = parseInt(form.reminder_days, 10) || 3
+    if (reminderDays > 0 && savedBillId) {
+      const propertyName = property 
+        ? `${property.community}${property.building ? ' ' + property.building : ''}` 
+        : '房源'
+      
+      const nextDueDate = calculateNextDueDate(
+        parseInt(form.bill_date, 10),
+        form.payment_cycle,
+        form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null
+      )
+      
+      console.log('创建提醒:', { billId: savedBillId, propertyName, nextDueDate, reminderDays })
+      
+      addBillReminder(savedBillId, propertyName, nextDueDate, reminderDays)
+    }
+    
+    setSubmitting(false)
+    setTimeout(() => Taro.navigateBack(), 1500)
   }
 
   return (
@@ -218,166 +184,153 @@ export default function RentBillFormPage() {
         <View className="space-y-4">
           {/* 关联房源信息 */}
           {property && (
-            <Card>
-              <CardContent className="p-4">
-                <View className="flex items-center gap-2">
-                  <Calendar size={18} color="#3b82f6" />
-                  <Text className="text-sm text-gray-500">关联房源：</Text>
-                  <Text className="text-sm font-medium text-gray-900">
-                    {property.community}{property.building ? ` ${property.building}` : ''}
-                  </Text>
-                </View>
-              </CardContent>
-            </Card>
+            <View className="bg-white rounded-xl p-4">
+              <View className="flex items-center gap-2">
+                <Calendar size={18} color="#3b82f6" />
+                <Text className="text-sm text-gray-500">关联房源：</Text>
+                <Text className="text-sm font-medium text-gray-900">
+                  {property.community}{property.building ? ` ${property.building}` : ''}
+                </Text>
+              </View>
+            </View>
           )}
 
           {/* 租客信息 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>租客信息</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">租客姓名</Text>
-                <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3">
-                  <User size={18} color="#999" />
+          <View className="bg-white rounded-xl p-4">
+            <Text className="text-base font-bold text-gray-800 mb-4">租客信息</Text>
+            
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">租客姓名</Text>
+              <View className="flex items-center gap-2">
+                <User size={18} color="#999" />
+                <View className="flex-1">
                   <Input
-                    className="flex-1 bg-transparent"
                     placeholder="请输入租客姓名"
                     value={form.tenant_name}
                     onInput={(e) => handleInputChange('tenant_name', e.detail.value)}
                   />
                 </View>
               </View>
+            </View>
 
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">联系电话</Text>
-                <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3">
-                  <Phone size={18} color="#999" />
+            <View>
+              <Text className="text-sm text-gray-600 mb-2">联系电话</Text>
+              <View className="flex items-center gap-2">
+                <Phone size={18} color="#999" />
+                <View className="flex-1">
                   <Input
                     type="number"
-                    className="flex-1 bg-transparent"
                     placeholder="请输入联系电话"
                     value={form.tenant_phone}
                     onInput={(e) => handleInputChange('tenant_phone', e.detail.value)}
                   />
                 </View>
               </View>
-            </CardContent>
-          </Card>
+            </View>
+          </View>
 
           {/* 账单设置 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>账单设置</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">应收金额 (元) *</Text>
-                <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3">
-                  <DollarSign size={18} color="#999" />
+          <View className="bg-white rounded-xl p-4">
+            <Text className="text-base font-bold text-gray-800 mb-4">账单设置</Text>
+            
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">应收金额 (元) *</Text>
+              <View className="flex items-center gap-2">
+                <DollarSign size={18} color="#999" />
+                <View className="flex-1">
                   <Input
                     type="digit"
-                    className="flex-1 bg-transparent"
                     placeholder="请输入应收金额"
                     value={form.amount}
                     onInput={(e) => handleInputChange('amount', e.detail.value)}
                   />
                 </View>
               </View>
+            </View>
 
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">付款周期 *</Text>
-                <Picker
-                  mode="selector"
-                  range={paymentCycleOptions}
-                  rangeKey="label"
-                  value={Math.max(0, paymentCycleOptions.findIndex(o => o.value === form.payment_cycle))}
-                  onChange={handlePaymentCycleChange}
-                >
-                  <View className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-                    <Text className="text-gray-900">
-                      {paymentCycleOptions.find(o => o.value === form.payment_cycle)?.label || '请选择'}
-                    </Text>
-                    <Text className="text-gray-400">{'>'}</Text>
-                  </View>
-                </Picker>
-              </View>
-
-              {form.payment_cycle === 'custom' && (
-                <View>
-                  <Text className="block text-sm text-gray-600 mb-2">自定义天数 *</Text>
-                  <View className="bg-gray-50 rounded-xl px-4 py-3">
-                    <Input
-                      type="number"
-                      className="w-full bg-transparent"
-                      placeholder="请输入天数"
-                      value={form.custom_days}
-                      onInput={(e) => handleInputChange('custom_days', e.detail.value)}
-                    />
-                  </View>
+            <View className="mb-4">
+              <Text className="text-sm text-gray-600 mb-2">付款周期 *</Text>
+              <Picker
+                mode="selector"
+                range={paymentCycleOptions}
+                value={paymentCycleValues.indexOf(form.payment_cycle)}
+                onChange={handlePaymentCycleChange}
+              >
+                <View className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-3">
+                  <Text className="text-sm">
+                    {paymentCycleOptions[paymentCycleValues.indexOf(form.payment_cycle)] || '请选择'}
+                  </Text>
+                  <Text className="text-gray-400">{'>'}</Text>
                 </View>
-              )}
+              </Picker>
+            </View>
 
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">账单日 *</Text>
-                <Picker
-                  mode="selector"
-                  range={billDateOptions}
-                  rangeKey="label"
-                  value={Math.max(0, parseInt(form.bill_date, 10) - 1)}
-                  onChange={handleDateChange}
-                >
-                  <View className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-                    <Text className="text-gray-900">
-                      {billDateOptions.find(o => o.value === form.bill_date)?.label || '请选择'}
-                    </Text>
-                    <Text className="text-gray-400">{'>'}</Text>
-                  </View>
-                </Picker>
+            {form.payment_cycle === 'custom' && (
+              <View className="mb-4">
+                <Text className="text-sm text-gray-600 mb-2">自定义天数 *</Text>
+                <Input
+                  type="number"
+                  placeholder="请输入天数"
+                  value={form.custom_days}
+                  onInput={(e) => handleInputChange('custom_days', e.detail.value)}
+                />
               </View>
-            </CardContent>
-          </Card>
+            )}
+
+            <View>
+              <Text className="text-sm text-gray-600 mb-2">账单日 *</Text>
+              <Picker
+                mode="selector"
+                range={billDateLabels}
+                value={parseInt(form.bill_date, 10) - 1}
+                onChange={handleBillDateChange}
+              >
+                <View className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-3">
+                  <Text className="text-sm">
+                    {billDateLabels[parseInt(form.bill_date, 10) - 1] || '请选择'}
+                  </Text>
+                  <Text className="text-gray-400">{'>'}</Text>
+                </View>
+              </Picker>
+            </View>
+          </View>
 
           {/* 提醒设置 */}
-          <Card>
-            <CardHeader>
+          <View className="bg-white rounded-xl p-4">
+            <View className="flex items-center gap-2 mb-4">
+              <Bell size={18} color="#3b82f6" />
+              <Text className="text-base font-bold text-gray-800">提醒设置</Text>
+            </View>
+            
+            <View>
+              <Text className="text-sm text-gray-600 mb-2">提前提醒天数</Text>
               <View className="flex items-center gap-2">
-                <Bell size={18} color="#3b82f6" />
-                <CardTitle>提醒设置</CardTitle>
-              </View>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">提前提醒天数</Text>
-                <View className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3">
+                <View className="flex-1">
                   <Input
                     type="number"
-                    className="flex-1 bg-transparent"
                     placeholder="请输入提前提醒天数"
                     value={form.reminder_days}
                     onInput={(e) => handleInputChange('reminder_days', e.detail.value)}
                   />
-                  <Text className="text-sm text-gray-500">天</Text>
                 </View>
-                <Text className="block text-xs text-gray-400 mt-2">
-                  将在账单日前指定天数提醒您收租
-                </Text>
+                <Text className="text-sm text-gray-500">天</Text>
               </View>
-            </CardContent>
-          </Card>
+              <Text className="text-xs text-gray-400 mt-2">
+                将在账单日前指定天数提醒您收租
+              </Text>
+            </View>
+          </View>
 
           {/* 提交按钮 */}
           <View className="pb-6">
-            <Button
-              className="w-full h-12 bg-sky-500 rounded-xl"
-              onClick={handleSubmit}
-              disabled={submitting}
+            <View 
+              className={`h-12 rounded-lg flex items-center justify-center ${submitting ? 'bg-gray-300' : 'bg-sky-500'}`}
+              onClick={submitting ? undefined : handleSubmit}
             >
               <Text className="text-white text-base font-medium">
                 {submitting ? '保存中...' : '保存'}
               </Text>
-            </Button>
+            </View>
           </View>
         </View>
       </ScrollView>
