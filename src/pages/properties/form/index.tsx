@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { Network } from '@/network'
 import { Camera, X } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { usePropertyStore } from '@/stores/property'
 
 interface PropertyForm {
   community: string
@@ -16,6 +16,7 @@ interface PropertyForm {
   price: string
   status: 'available' | 'rented' | 'sold'
   images: string[]
+  remark: string
 }
 
 const initialForm: PropertyForm = {
@@ -27,46 +28,45 @@ const initialForm: PropertyForm = {
   price: '',
   status: 'available',
   images: [],
+  remark: '',
 }
 
 export default function PropertyFormPage() {
   const router = useRouter()
   const { id } = router.params
   const isEdit = Boolean(id)
+  
   const [form, setForm] = useState<PropertyForm>(initialForm)
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(false)
+
+  // 从本地存储获取房源
+  const getProperty = usePropertyStore(state => state.getProperty)
+  const addProperty = usePropertyStore(state => state.addProperty)
+  const updateProperty = usePropertyStore(state => state.updateProperty)
 
   useEffect(() => {
     if (id) {
-      fetchProperty()
+      loadProperty()
     }
   }, [id])
 
-  const fetchProperty = async () => {
-    try {
-      setLoading(true)
-      const res = await Network.request({
-        url: `/api/properties/${id}`,
-        method: 'GET',
-      })
-      
-      const data = res.data
+  const loadProperty = () => {
+    const property = getProperty(id!)
+    if (property) {
       setForm({
-        community: data.community || '',
-        building: data.building || '',
-        address: data.address || '',
-        layout: data.layout || '',
-        area: data.area?.toString() || '',
-        price: data.price?.toString() || '',
-        status: data.status || 'available',
-        images: Array.isArray(data.images) ? data.images : [],
+        community: property.community || '',
+        building: property.building || '',
+        address: property.address || '',
+        layout: property.layout || '',
+        area: property.area?.toString() || '',
+        price: property.price?.toString() || '',
+        status: property.status || 'available',
+        images: Array.isArray(property.images) ? property.images : [],
+        remark: property.remark || '',
       })
-    } catch (error) {
-      console.error('获取房源详情失败:', error)
-      Taro.showToast({ title: '加载失败', icon: 'none' })
-    } finally {
-      setLoading(false)
+    } else {
+      Taro.showToast({ title: '房源不存在', icon: 'none' })
+      setTimeout(() => Taro.navigateBack(), 1500)
     }
   }
 
@@ -82,32 +82,37 @@ export default function PropertyFormPage() {
         sourceType: ['album', 'camera'],
       })
 
-      Taro.showToast({ title: '上传中...', icon: 'loading' })
+      Taro.showToast({ title: '处理中...', icon: 'loading' })
 
+      // 图片转存到本地存储（Base64）
       for (const tempFilePath of res.tempFilePaths) {
-        const uploadRes = await Network.uploadFile({
-          url: '/api/upload',
-          filePath: tempFilePath,
-          name: 'file',
-        })
-
-        console.log('上传响应:', uploadRes)
-
-        // Network.uploadFile 返回的是解析后的 JSON 对象
-        // 后端返回格式: { code: 200, msg: '上传成功', data: { key, url } }
-        if (uploadRes.code === 200 && uploadRes.data?.url) {
+        try {
+          // 读取图片为 Base64
+          const fs = Taro.getFileSystemManager()
+          const base64 = fs.readFileSync(tempFilePath, 'base64')
+          
+          // 存储为本地路径（使用临时路径或转为 base64 data URL）
+          const localPath = `data:image/jpeg;base64,${base64}`
+          
           setForm(prev => ({
             ...prev,
-            images: [...prev.images, uploadRes.data.url],
+            images: [...prev.images, localPath],
+          }))
+        } catch (e) {
+          console.error('处理图片失败:', e)
+          // 如果转存失败，直接使用临时路径
+          setForm(prev => ({
+            ...prev,
+            images: [...prev.images, tempFilePath],
           }))
         }
       }
 
       Taro.hideToast()
-      Taro.showToast({ title: '上传成功', icon: 'success' })
+      Taro.showToast({ title: '已添加', icon: 'success', duration: 1000 })
     } catch (error) {
-      console.error('上传图片失败:', error)
-      Taro.showToast({ title: '上传失败', icon: 'none' })
+      console.error('选择图片失败:', error)
+      Taro.showToast({ title: '取消选择', icon: 'none', duration: 1000 })
     }
   }
 
@@ -132,43 +137,33 @@ export default function PropertyFormPage() {
     try {
       setSubmitting(true)
       
-      const data: Record<string, unknown> = {
-        community: form.community,
-        address: form.address,
+      const propertyData = {
+        community: form.community.trim(),
+        address: form.address.trim(),
+        building: form.building.trim() || null,
+        layout: form.layout.trim() || null,
+        area: form.area ? parseFloat(form.area) : null,
+        price: form.price ? parseFloat(form.price) : null,
         status: form.status,
+        images: form.images,
+        remark: form.remark.trim() || null,
       }
 
-      if (form.building) data.building = form.building
-      if (form.area) data.area = parseFloat(form.area)
-      if (form.price) data.price = parseFloat(form.price)
-      if (form.layout) data.layout = form.layout
-      if (form.images.length > 0) data.images = form.images
-
-      const url = isEdit ? `/api/properties/${id}` : '/api/properties'
-      const method = isEdit ? 'PUT' : 'POST'
-
-      const res = await Network.request({ url, method, data })
-      
-      if (res.code === 200) {
-        Taro.showToast({ title: isEdit ? '更新成功' : '创建成功', icon: 'success' })
-        setTimeout(() => Taro.navigateBack(), 1500)
+      if (isEdit) {
+        updateProperty(id!, propertyData)
+        Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
-        Taro.showToast({ title: res.msg || '操作失败', icon: 'none' })
+        addProperty(propertyData)
+        Taro.showToast({ title: '创建成功', icon: 'success' })
       }
+      
+      setTimeout(() => Taro.navigateBack(), 1500)
     } catch (error) {
       console.error('提交失败:', error)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <View className="flex items-center justify-center h-full">
-        <Text className="text-gray-400">加载中...</Text>
-      </View>
-    )
   }
 
   return (
@@ -288,6 +283,18 @@ export default function PropertyFormPage() {
                   />
                 </View>
               </View>
+
+              <View>
+                <Text className="block text-sm text-gray-600 mb-2">备注</Text>
+                <View className="bg-gray-50 rounded-xl px-4 py-3">
+                  <Input
+                    className="w-full bg-transparent"
+                    placeholder="房源备注信息"
+                    value={form.remark}
+                    onInput={(e) => handleInputChange('remark', e.detail.value)}
+                  />
+                </View>
+              </View>
             </CardContent>
           </Card>
 
@@ -322,8 +329,18 @@ export default function PropertyFormPage() {
                   </View>
                 )}
               </View>
+              <Text className="block text-xs text-gray-400 mt-2">
+                图片保存在本地，最多9张
+              </Text>
             </CardContent>
           </Card>
+          
+          {/* 提示信息 */}
+          <View className="p-3 bg-blue-50 rounded-lg">
+            <Text className="text-xs text-blue-600">
+              💡 房源数据保存在您的手机本地，不会上传到服务器。卸载应用后数据将丢失，请及时备份重要数据。
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -345,7 +362,7 @@ export default function PropertyFormPage() {
           onClick={handleSubmit}
           disabled={submitting}
         >
-          <Text className="text-white">{submitting ? '提交中...' : (isEdit ? '保存修改' : '创建房源')}</Text>
+          <Text className="text-white">{submitting ? '保存中...' : (isEdit ? '保存修改' : '创建房源')}</Text>
         </Button>
       </View>
     </View>

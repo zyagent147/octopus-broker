@@ -1,40 +1,13 @@
-import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { Network } from '@/network'
 import { 
   MapPin, House, Pencil, Trash2, Plus, DollarSign, Phone, Calendar, Check
 } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-
-interface Property {
-  id: string
-  community: string
-  building: string | null
-  address: string
-  layout: string | null
-  area: number | null
-  price: number | null
-  status: 'available' | 'rented' | 'sold'
-  images: string[]
-  created_at: string
-  updated_at: string | null
-}
-
-interface RentBill {
-  id: string
-  tenant_name: string | null
-  tenant_phone: string | null
-  amount: number
-  payment_cycle: 'monthly' | 'quarterly' | 'custom'
-  custom_days: number | null
-  bill_date: number
-  next_due_date: string
-  status: 'pending' | 'paid' | 'overdue'
-  created_at: string
-}
+import { usePropertyStore } from '@/stores/property'
+import { useRentBillStore } from '@/stores/rentBill'
 
 const statusConfig = {
   available: { label: '空置', variant: 'default' as const, color: '#10b981' },
@@ -51,46 +24,13 @@ const paymentCycleConfig = {
 export default function PropertyDetailPage() {
   const router = useRouter()
   const { id } = router.params
-  const [property, setProperty] = useState<Property | null>(null)
-  const [bills, setBills] = useState<RentBill[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (id) {
-      fetchProperty()
-      fetchBills()
-    }
-  }, [id])
-
-  const fetchProperty = async () => {
-    try {
-      setLoading(true)
-      const res = await Network.request({
-        url: `/api/properties/${id}`,
-        method: 'GET',
-      })
-      
-      setProperty(res.data)
-    } catch (error) {
-      console.error('获取房源详情失败:', error)
-      Taro.showToast({ title: '加载失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchBills = async () => {
-    try {
-      const res = await Network.request({
-        url: `/api/rent-bills/property/${id}`,
-        method: 'GET',
-      })
-      
-      setBills(res.data || [])
-    } catch (error) {
-      console.error('获取账单列表失败:', error)
-    }
-  }
+  
+  // 本地存储
+  const property = usePropertyStore(state => state.getProperty(id!))
+  const deleteProperty = usePropertyStore(state => state.deleteProperty)
+  const bills = useRentBillStore(state => state.getBillsByProperty(id!))
+  const markBillPaid = useRentBillStore(state => state.markAsPaid)
+  const deleteBill = useRentBillStore(state => state.deleteBill)
 
   const handleEdit = () => {
     Taro.navigateTo({ url: `/pages/properties/form/index?id=${id}` })
@@ -103,16 +43,12 @@ export default function PropertyDetailPage() {
     })
     
     if (res.confirm) {
-      try {
-        await Network.request({
-          url: `/api/properties/${id}`,
-          method: 'DELETE',
-        })
-        Taro.showToast({ title: '删除成功', icon: 'success' })
-        setTimeout(() => Taro.navigateBack(), 1500)
-      } catch {
-        Taro.showToast({ title: '删除失败', icon: 'none' })
-      }
+      // 删除关联的账单
+      bills.forEach(bill => deleteBill(bill.id))
+      // 删除房源
+      deleteProperty(id!)
+      Taro.showToast({ title: '删除成功', icon: 'success' })
+      setTimeout(() => Taro.navigateBack(), 1500)
     }
   }
 
@@ -124,22 +60,9 @@ export default function PropertyDetailPage() {
     Taro.navigateTo({ url: `/pages/rent-bills/form/index?propertyId=${id}&id=${billId}` })
   }
 
-  const handleMarkPaid = async (billId: string) => {
-    try {
-      const res = await Network.request({
-        url: `/api/rent-bills/${billId}/mark-paid`,
-        method: 'POST',
-      })
-      
-      if (res.code === 200) {
-        Taro.showToast({ title: '已标记收款', icon: 'success' })
-        fetchBills()
-      } else {
-        Taro.showToast({ title: res.msg || '操作失败', icon: 'none' })
-      }
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
+  const handleMarkPaid = (billId: string) => {
+    markBillPaid(billId)
+    Taro.showToast({ title: '已标记收款', icon: 'success' })
   }
 
   const handleCall = (phone: string) => {
@@ -158,14 +81,6 @@ export default function PropertyDetailPage() {
     due.setHours(0, 0, 0, 0)
     const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     return diff
-  }
-
-  if (loading) {
-    return (
-      <View className="flex items-center justify-center h-full">
-        <Text className="text-gray-400">加载中...</Text>
-      </View>
-    )
   }
 
   if (!property) {
@@ -226,6 +141,12 @@ export default function PropertyDetailPage() {
                 {property.area && <Badge variant="outline">{property.area}㎡</Badge>}
                 {property.layout && <Badge variant="outline">{property.layout}</Badge>}
               </View>
+              
+              {property.remark && (
+                <View className="mt-3 p-2 bg-gray-50 rounded">
+                  <Text className="text-sm text-gray-600">{property.remark}</Text>
+                </View>
+              )}
             </CardContent>
           </Card>
 
@@ -352,6 +273,13 @@ export default function PropertyDetailPage() {
               </View>
             </CardContent>
           </Card>
+          
+          {/* 存储提示 */}
+          <View className="p-3 bg-blue-50 rounded-lg">
+            <Text className="text-xs text-blue-600">
+              💡 房源数据保存在您的手机本地，不会上传到服务器。
+            </Text>
+          </View>
         </View>
       </ScrollView>
 

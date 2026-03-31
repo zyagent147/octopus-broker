@@ -1,24 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { Network } from '@/network'
+import Taro from '@tarojs/taro'
 import { Search, Plus, MapPin, Building, House, Pencil } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-
-interface Property {
-  id: string
-  community: string
-  building: string | null
-  address: string
-  layout: string | null
-  area?: number
-  price?: number
-  status: 'available' | 'rented' | 'sold'
-  images: string[]
-  created_at: string
-}
+import { usePropertyStore } from '@/stores/property'
 
 const statusConfig = {
   available: { label: '空置', variant: 'default' as const },
@@ -27,41 +14,16 @@ const statusConfig = {
 }
 
 export default function PropertiesPage() {
-  const [properties, setProperties] = useState<Property[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchKeyword, setSearchKeyword] = useState('')
+  
+  // 从本地存储获取房源列表
+  const properties = usePropertyStore(state => state.properties)
+  const searchProperties = usePropertyStore(state => state.searchProperties)
 
-  const fetchProperties = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await Network.request({
-        url: '/api/properties',
-        method: 'GET',
-      })
-      
-      console.log('房源列表响应:', res.data)
-      setProperties(res.data.data || [])
-    } catch (error) {
-      console.error('获取房源列表失败:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useDidShow(() => {
-    fetchProperties()
-  })
-
-  usePullDownRefresh(() => {
-    fetchProperties().finally(() => {
-      Taro.stopPullDownRefresh()
-    })
-  })
-
-  const filteredProperties = properties.filter(p => 
-    p.community.includes(searchKeyword) || 
-    p.address.includes(searchKeyword)
-  )
+  // 搜索过滤
+  const filteredProperties = searchKeyword 
+    ? searchProperties(searchKeyword)
+    : properties
 
   const handleAdd = () => {
     Taro.navigateTo({ url: '/pages/properties/form/index' })
@@ -95,20 +57,18 @@ export default function PropertiesPage() {
       <View className="px-4 py-3 bg-white border-b border-gray-100">
         <Button onClick={handleAdd} className="w-full bg-sky-500 text-white rounded-xl">
           <Plus size={18} color="#fff" className="mr-2" />
-          <Text>添加房源</Text>
+          <Text className="text-white">添加房源</Text>
         </Button>
       </View>
 
       {/* 房源列表 */}
       <ScrollView scrollY className="flex-1 px-4 py-3">
-        {loading ? (
-          <View className="flex items-center justify-center py-20">
-            <Text className="text-gray-400">加载中...</Text>
-          </View>
-        ) : filteredProperties.length === 0 ? (
+        {filteredProperties.length === 0 ? (
           <View className="flex flex-col items-center justify-center py-20">
             <Building size={48} color="#d1d5db" />
-            <Text className="block mt-4 text-gray-400">暂无房源</Text>
+            <Text className="block mt-4 text-gray-400">
+              {searchKeyword ? '未找到匹配的房源' : '暂无房源，点击上方按钮添加'}
+            </Text>
           </View>
         ) : (
           <View className="space-y-3">
@@ -178,6 +138,13 @@ export default function PropertiesPage() {
           </View>
         )}
       </ScrollView>
+      
+      {/* 本地存储提示 */}
+      <View className="px-4 py-2 bg-blue-50 border-t border-blue-100">
+        <Text className="text-xs text-blue-600 text-center">
+          💡 共 {properties.length} 套房源 · 数据保存在本地
+        </Text>
+      </View>
     </View>
   )
 }

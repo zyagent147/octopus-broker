@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { Network } from '@/network'
-import { Calendar, User, Phone, DollarSign } from 'lucide-react-taro'
+import { User, Phone, DollarSign } from 'lucide-react-taro'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useRentBillStore } from '@/stores/rentBill'
 
 interface RentBillForm {
   tenant_name: string
@@ -14,7 +14,6 @@ interface RentBillForm {
   payment_cycle: 'monthly' | 'quarterly' | 'custom'
   custom_days: string
   bill_date: string
-  next_due_date: string
 }
 
 const initialForm: RentBillForm = {
@@ -24,7 +23,6 @@ const initialForm: RentBillForm = {
   payment_cycle: 'monthly',
   custom_days: '',
   bill_date: '1',
-  next_due_date: '',
 }
 
 const paymentCycleOptions = [
@@ -42,45 +40,35 @@ export default function RentBillFormPage() {
   const router = useRouter()
   const { propertyId, id } = router.params
   const isEdit = Boolean(id)
+  
   const [form, setForm] = useState<RentBillForm>(initialForm)
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(false)
+
+  // 本地存储
+  const getBill = useRentBillStore(state => state.getBill)
+  const addBill = useRentBillStore(state => state.addBill)
+  const updateBill = useRentBillStore(state => state.updateBill)
 
   useEffect(() => {
-    // 设置默认下次应收日期为下个月账单日
-    const today = new Date()
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-    const defaultDueDate = nextMonth.toISOString().split('T')[0]
-    setForm(prev => ({ ...prev, next_due_date: defaultDueDate }))
-
     if (id) {
-      fetchBill()
+      loadBill()
     }
   }, [id])
 
-  const fetchBill = async () => {
-    try {
-      setLoading(true)
-      const res = await Network.request({
-        url: `/api/rent-bills/${id}`,
-        method: 'GET',
-      })
-      
-      const data = res.data
+  const loadBill = () => {
+    const bill = getBill(id!)
+    if (bill) {
       setForm({
-        tenant_name: data.tenant_name || '',
-        tenant_phone: data.tenant_phone || '',
-        amount: data.amount?.toString() || '',
-        payment_cycle: data.payment_cycle || 'monthly',
-        custom_days: data.custom_days?.toString() || '',
-        bill_date: data.bill_date?.toString() || '1',
-        next_due_date: data.next_due_date || '',
+        tenant_name: bill.tenant_name || '',
+        tenant_phone: bill.tenant_phone || '',
+        amount: bill.amount?.toString() || '',
+        payment_cycle: bill.payment_cycle || 'monthly',
+        custom_days: bill.custom_days?.toString() || '',
+        bill_date: bill.bill_date?.toString() || '1',
       })
-    } catch (error) {
-      console.error('获取账单详情失败:', error)
-      Taro.showToast({ title: '加载失败', icon: 'none' })
-    } finally {
-      setLoading(false)
+    } else {
+      Taro.showToast({ title: '账单不存在', icon: 'none' })
+      setTimeout(() => Taro.navigateBack(), 1500)
     }
   }
 
@@ -104,10 +92,6 @@ export default function RentBillFormPage() {
     }
   }
 
-  const handleDueDateChange = (e: any) => {
-    handleInputChange('next_due_date', e.detail.value)
-  }
-
   const handleSubmit = async () => {
     if (!form.amount || parseFloat(form.amount) <= 0) {
       Taro.showToast({ title: '请输入正确的金额', icon: 'none' })
@@ -119,53 +103,42 @@ export default function RentBillFormPage() {
       return
     }
 
-    if (!form.next_due_date) {
-      Taro.showToast({ title: '请选择下次应收日期', icon: 'none' })
+    if (!propertyId) {
+      Taro.showToast({ title: '房源ID缺失', icon: 'none' })
       return
     }
 
     try {
       setSubmitting(true)
       
-      const data: Record<string, unknown> = {
+      const billData = {
         property_id: propertyId,
-        tenant_name: form.tenant_name || null,
-        tenant_phone: form.tenant_phone || null,
+        tenant_name: form.tenant_name.trim() || null,
+        tenant_phone: form.tenant_phone.trim() || null,
         amount: parseFloat(form.amount),
         payment_cycle: form.payment_cycle,
         bill_date: parseInt(form.bill_date, 10),
-        next_due_date: form.next_due_date,
+        custom_days: form.payment_cycle === 'custom' ? parseInt(form.custom_days, 10) : null,
+        status: 'pending' as const,
+        paid_at: null,
+        remark: null,
       }
 
-      if (form.payment_cycle === 'custom') {
-        data.custom_days = parseInt(form.custom_days, 10)
-      }
-
-      const url = isEdit ? `/api/rent-bills/${id}` : '/api/rent-bills'
-      const method = isEdit ? 'PUT' : 'POST'
-
-      const res = await Network.request({ url, method, data })
-      
-      if (res.code === 200) {
-        Taro.showToast({ title: isEdit ? '更新成功' : '创建成功', icon: 'success' })
-        setTimeout(() => Taro.navigateBack(), 1500)
+      if (isEdit) {
+        updateBill(id!, billData)
+        Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
-        Taro.showToast({ title: res.msg || '操作失败', icon: 'none' })
+        addBill(billData)
+        Taro.showToast({ title: '创建成功', icon: 'success' })
       }
+      
+      setTimeout(() => Taro.navigateBack(), 1500)
     } catch (error) {
       console.error('提交失败:', error)
       Taro.showToast({ title: '操作失败', icon: 'none' })
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <View className="flex items-center justify-center h-full">
-        <Text className="text-gray-400">加载中...</Text>
-      </View>
-    )
   }
 
   return (
@@ -280,28 +253,12 @@ export default function RentBillFormPage() {
             </CardContent>
           </Card>
 
-          {/* 下次应收 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>下次应收</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <View>
-                <Text className="block text-sm text-gray-600 mb-2">应收日期 *</Text>
-                <Picker mode="date" value={form.next_due_date} onChange={handleDueDateChange}>
-                  <View className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-                    <View className="flex items-center gap-2">
-                      <Calendar size={18} color="#999" />
-                      <Text className={form.next_due_date ? 'text-gray-900' : 'text-gray-400'}>
-                        {form.next_due_date || '请选择日期'}
-                      </Text>
-                    </View>
-                    <Text className="text-gray-400">{'>'}</Text>
-                  </View>
-                </Picker>
-              </View>
-            </CardContent>
-          </Card>
+          {/* 提示 */}
+          <View className="p-3 bg-blue-50 rounded-lg">
+            <Text className="text-xs text-blue-600">
+              💡 下次应收日期会根据账单日和付款周期自动计算
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -323,7 +280,7 @@ export default function RentBillFormPage() {
           onClick={handleSubmit}
           disabled={submitting}
         >
-          <Text className="text-white">{submitting ? '提交中...' : (isEdit ? '保存修改' : '创建账单')}</Text>
+          <Text className="text-white">{submitting ? '保存中...' : (isEdit ? '保存修改' : '创建账单')}</Text>
         </Button>
       </View>
     </View>
