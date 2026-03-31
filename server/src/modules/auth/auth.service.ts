@@ -30,8 +30,10 @@ export class AuthService {
     const wxAppId = process.env.WX_APP_ID
     const wxAppSecret = process.env.WX_APP_SECRET
 
+    // 如果没有配置微信AppID和Secret，使用开发模式登录
     if (!wxAppId || !wxAppSecret) {
-      throw new UnauthorizedException('微信小程序配置缺失')
+      this.logger.warn('微信小程序配置缺失，使用开发模式登录')
+      return this.devLogin()
     }
 
     const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${wxAppId}&secret=${wxAppSecret}&js_code=${code}&grant_type=authorization_code`

@@ -1,5 +1,4 @@
 import { View, Text, Image } from '@tarojs/components'
-import type { FC } from 'react'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Network } from '@/network'
@@ -9,7 +8,7 @@ import { useUserStore } from '@/stores/user'
 // @ts-ignore
 import logoImage from '@/assets/章鱼经纪人.jpeg'
 
-const LoginPage: FC = () => {
+export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const login = useUserStore((state) => state.login)
 
@@ -92,7 +91,7 @@ const LoginPage: FC = () => {
         // 保存登录信息
         login(user, token)
 
-        Taro.showToast({ title: '开发模式登录成功', icon: 'success' })
+        Taro.showToast({ title: '登录成功', icon: 'success' })
 
         // 延迟跳转
         setTimeout(() => {
@@ -152,12 +151,33 @@ const LoginPage: FC = () => {
           borderRadius: '12px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          marginBottom: '12px'
         }}
         onClick={handleLogin}
       >
         <Text style={{ color: '#ffffff', fontSize: '16px', fontWeight: '500' }}>
           {loading ? '登录中...' : '微信一键登录'}
+        </Text>
+      </View>
+
+      {/* 体验模式按钮 */}
+      <View 
+        style={{ 
+          width: '100%', 
+          maxWidth: '320px',
+          height: '48px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid #e5e7eb'
+        }}
+        onClick={handleDevLogin}
+      >
+        <Text style={{ color: '#3b82f6', fontSize: '16px', fontWeight: '500' }}>
+          体验模式
         </Text>
       </View>
 
@@ -167,8 +187,13 @@ const LoginPage: FC = () => {
           登录即代表同意《用户协议》和《隐私政策》
         </Text>
       </View>
+
+      {/* 提示 */}
+      <View style={{ marginTop: '16px', padding: '12px', backgroundColor: '#eff6ff', borderRadius: '8px', maxWidth: '320px' }}>
+        <Text style={{ fontSize: '11px', textAlign: 'center', color: '#3b82f6' }}>
+          💡 点击「体验模式」可直接进入，无需微信授权
+        </Text>
+      </View>
     </View>
   )
 }
-
-export default LoginPage
