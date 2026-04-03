@@ -16,7 +16,7 @@ export default function PrivacyPolicyPage() {
           引言
         </Text>
         <Text style={{ display: 'block', marginBottom: '8px' }}>
-          "章鱼经纪人"小程序（以下简称"我们"）非常重视用户隐私和个人信息保护。本隐私政策将向您说明我们如何收集、使用、存储、共享和保护您的个人信息。
+          &quot;章鱼经纪人&quot;小程序（以下简称&quot;我们&quot;）非常重视用户隐私和个人信息保护。本隐私政策将向您说明我们如何收集、使用、存储、共享和保护您的个人信息。
         </Text>
 
         <Text style={{ display: 'block', fontWeight: 'bold', marginTop: '16px', marginBottom: '8px' }}>

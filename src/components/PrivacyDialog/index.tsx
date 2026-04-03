@@ -64,24 +64,28 @@ export default function PrivacyDialog({ visible, onAgree, onDisagree }: PrivacyD
         }}
       >
         {/* 标题 */}
-        <Text style={{
-          display: 'block',
-          fontSize: '18px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          marginBottom: '20px',
-          color: '#1f2937'
-        }}>
+        <Text
+          style={{
+            display: 'block',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            marginBottom: '20px',
+            color: '#1f2937'
+          }}
+        >
           服务协议和隐私政策
         </Text>
 
         {/* 协议内容 */}
-        <View style={{
-          fontSize: '14px',
-          lineHeight: '24px',
-          color: '#6b7280',
-          marginBottom: '20px'
-        }}>
+        <View
+          style={{
+            fontSize: '14px',
+            lineHeight: '24px',
+            color: '#6b7280',
+            marginBottom: '20px'
+          }}
+        >
           <Text style={{ display: 'block', marginBottom: '8px' }}>
             请您仔细阅读以下协议：
           </Text>
@@ -111,27 +115,31 @@ export default function PrivacyDialog({ visible, onAgree, onDisagree }: PrivacyD
           }}
           onClick={() => setChecked(!checked)}
         >
-          <View style={{
-            width: '18px',
-            height: '18px',
-            borderRadius: '4px',
-            border: `2px solid ${checked ? '#3b82f6' : '#d1d5db'}`,
-            backgroundColor: checked ? '#3b82f6' : '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+          <View
+            style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '4px',
+              border: `2px solid ${checked ? '#3b82f6' : '#d1d5db'}`,
+              backgroundColor: checked ? '#3b82f6' : '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
             {checked && (
               <Text style={{ color: '#fff', fontSize: '12px', lineHeight: '18px' }}>✓</Text>
             )}
           </View>
-          <Text style={{
-            flex: 1,
-            fontSize: '13px',
-            color: '#6b7280',
-            lineHeight: '20px'
-          }}>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: '13px',
+              color: '#6b7280',
+              lineHeight: '20px'
+            }}
+          >
             我已阅读并同意《用户服务协议》和《隐私政策》
           </Text>
         </View>

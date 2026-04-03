@@ -16,7 +16,7 @@ export default function UserAgreementPage() {
           一、协议的接受与修改
         </Text>
         <Text style={{ display: 'block', marginBottom: '8px' }}>
-          1.1 本协议是您与"章鱼经纪人"小程序（以下简称"本平台"）之间关于使用本平台服务所订立的协议。
+          1.1 本协议是您与&quot;章鱼经纪人&quot;小程序（以下简称&quot;本平台&quot;）之间关于使用本平台服务所订立的协议。
         </Text>
         <Text style={{ display: 'block', marginBottom: '8px' }}>
           1.2 您通过网络页面点击确认或以其他方式选择接受本协议，即表示您与本平台已达成协议并同意接受本协议的全部约定内容。
