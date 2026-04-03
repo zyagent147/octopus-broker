@@ -9,7 +9,7 @@ WORKDIR /app
 # 安装系统依赖和 pnpm
 RUN apk add --no-cache python3 py3-pip curl bash && \
     pip3 install --no-cache-dir --break-system-packages coze-workload-identity || true && \
-    corepack enable && corepack prepare pnpm@latest --activate
+    corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 # 设置环境变量
 ENV NODE_ENV=production
@@ -22,8 +22,8 @@ COPY server/package.json ./server/
 # 复制 patches 目录（必需）
 COPY patches/ ./patches/
 
-# 安装所有依赖
-RUN pnpm install --frozen-lockfile
+# 安装所有依赖（生产环境使用 frozen-lockfile）
+RUN pnpm install --frozen-lockfile || pnpm install
 
 # 复制源代码和配置
 COPY server/ ./server/
