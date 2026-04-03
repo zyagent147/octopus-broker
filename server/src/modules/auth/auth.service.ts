@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, Logger, InternalServerErrorException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
 
 interface WechatSessionResponse {
   openid?: string
@@ -78,10 +79,10 @@ export class AuthService {
 
       this.logger.log(`获取到openid: ${openid}`)
 
-      // 使用简单的用户存储（内存中的Map，生产环境应使用数据库）
+      // 使用数据库创建或获取用户
       const user = await this.createOrGetUser(openid)
 
-      // 生成 JWT token（默认经纪人角色）
+      // 生成 JWT token
       const payload: UserPayload = {
         id: user.id,
         openid: user.openid,
@@ -124,7 +125,7 @@ export class AuthService {
     
     // 使用固定的测试 openid
     const devOpenid = 'dev-test-user-001'
-    const user = await this.createOrGetUser(devOpenid, '测试管理员')
+    const user = await this.createOrGetUser(devOpenid, '测试管理员', 'admin')
 
     // 生成 JWT token（管理员角色）
     const payload: UserPayload = {
@@ -150,62 +151,97 @@ export class AuthService {
     }
   }
 
-  // 简单的内存用户存储（生产环境应使用数据库）
-  private users: Map<string, any> = new Map()
-  private userIdCounter = 0
-
   /**
-   * 创建或获取用户
+   * 创建或获取用户（使用 Supabase 数据库）
    */
-  private async createOrGetUser(openid: string, nickname?: string) {
-    // 检查用户是否已存在
-    let user = this.users.get(openid)
+  private async createOrGetUser(openid: string, nickname?: string, role?: string) {
+    const client = getSupabaseClient()
     
-    if (!user) {
-      // 创建新用户
-      this.userIdCounter++
-      user = {
-        id: `user_${this.userIdCounter}_${Date.now()}`,
-        openid,
-        nickname: nickname || `用户${this.userIdCounter}`,
-        avatar: null,
-        phone: null,
-        role: 'broker',
-        created_at: new Date().toISOString(),
-      }
-      this.users.set(openid, user)
-      this.logger.log(`创建新用户: ${JSON.stringify(user)}`)
-    } else {
-      this.logger.log(`用户已存在: ${JSON.stringify(user)}`)
+    // 1. 查询用户是否已存在
+    const { data: existingUser, error: queryError } = await client
+      .from('users')
+      .select('*')
+      .eq('openid', openid)
+      .maybeSingle()
+    
+    if (queryError) {
+      this.logger.error(`查询用户失败: ${queryError.message}`)
+      throw new InternalServerErrorException('查询用户失败')
     }
     
-    return user
+    // 2. 如果用户已存在，直接返回
+    if (existingUser) {
+      this.logger.log(`用户已存在: ${JSON.stringify(existingUser)}`)
+      return existingUser
+    }
+    
+    // 3. 创建新用户
+    this.logger.log('创建新用户...')
+    const { data: newUser, error: insertError } = await client
+      .from('users')
+      .insert({
+        openid,
+        nickname: nickname || `用户${Date.now()}`,
+        role: role || 'broker',
+      })
+      .select()
+      .single()
+    
+    if (insertError) {
+      this.logger.error(`创建用户失败: ${insertError.message}`)
+      throw new InternalServerErrorException('创建用户失败')
+    }
+    
+    this.logger.log(`创建新用户成功: ${JSON.stringify(newUser)}`)
+    return newUser
   }
 
   /**
    * 更新用户信息
    */
   async updateUserInfo(userId: string, data: { nickname?: string; avatar?: string; phone?: string }) {
-    // 查找用户
-    for (const user of this.users.values()) {
-      if (user.id === userId) {
-        Object.assign(user, data, { updated_at: new Date().toISOString() })
-        return user
-      }
+    const client = getSupabaseClient()
+    
+    const { data: updatedUser, error } = await client
+      .from('users')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .maybeSingle()
+    
+    if (error) {
+      this.logger.error(`更新用户信息失败: ${error.message}`)
+      throw new InternalServerErrorException('更新用户信息失败')
     }
-    throw new Error('用户不存在')
+    
+    if (!updatedUser) {
+      throw new UnauthorizedException('用户不存在')
+    }
+    
+    return updatedUser
   }
 
   /**
    * 获取用户信息
    */
   async getUserById(userId: string) {
-    for (const user of this.users.values()) {
-      if (user.id === userId) {
-        return user
-      }
+    const client = getSupabaseClient()
+    
+    const { data: user, error } = await client
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
+    
+    if (error) {
+      this.logger.error(`查询用户失败: ${error.message}`)
+      return null
     }
-    return null
+    
+    return user
   }
 
   /**

@@ -213,3 +213,70 @@ export const services = pgTable(
     index("services_status_idx").on(table.status),
   ]
 )
+
+// 租约表
+export const leases = pgTable(
+  "leases",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    property_id: varchar("property_id", { length: 36 }).notNull().references(() => properties.id, { onDelete: "cascade" }),
+    user_id: varchar("user_id", { length: 36 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+    // 业主信息
+    landlord_name: varchar("landlord_name", { length: 64 }).notNull(),
+    landlord_phone: varchar("landlord_phone", { length: 20 }).notNull(),
+    // 租客信息
+    tenant_name: varchar("tenant_name", { length: 64 }).notNull(),
+    tenant_phone: varchar("tenant_phone", { length: 20 }).notNull(),
+    // 租约规则
+    monthly_rent: integer("monthly_rent").notNull(),
+    payment_method: varchar("payment_method", { length: 20 }).notNull().default("quarterly"), // 'monthly' | 'quarterly' | 'semiannual' | 'annual'
+    start_date: date("start_date").notNull(),
+    end_date: date("end_date").notNull(),
+    // 提醒设置
+    reminder_days: integer("reminder_days").default(3).notNull(),
+    // 状态
+    status: varchar("status", { length: 20 }).notNull().default("active"), // 'active' | 'expired' | 'terminated'
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("leases_property_id_idx").on(table.property_id),
+    index("leases_user_id_idx").on(table.user_id),
+    index("leases_status_idx").on(table.status),
+    index("leases_start_date_idx").on(table.start_date),
+    index("leases_end_date_idx").on(table.end_date),
+  ]
+)
+
+// 账单表
+export const bills = pgTable(
+  "bills",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    lease_id: varchar("lease_id", { length: 36 }).notNull().references(() => leases.id, { onDelete: "cascade" }),
+    property_id: varchar("property_id", { length: 36 }).notNull().references(() => properties.id, { onDelete: "cascade" }),
+    user_id: varchar("user_id", { length: 36 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+    // 账单信息
+    period_index: integer("period_index").notNull(), // 第几期（从1开始）
+    period_start: date("period_start").notNull(), // 本期开始日期
+    period_end: date("period_end").notNull(), // 本期结束日期
+    due_date: date("due_date").notNull(), // 应收日期
+    amount: integer("amount").notNull(), // 本期金额
+    // 状态
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending' | 'paid'
+    // 收款记录
+    paid_at: timestamp("paid_at", { withTimezone: true }),
+    paid_amount: integer("paid_amount"),
+    remark: text("remark"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("bills_lease_id_idx").on(table.lease_id),
+    index("bills_property_id_idx").on(table.property_id),
+    index("bills_user_id_idx").on(table.user_id),
+    index("bills_status_idx").on(table.status),
+    index("bills_due_date_idx").on(table.due_date),
+    index("bills_period_idx").on(table.period_index),
+  ]
+)
