@@ -19,6 +19,9 @@ ENV PORT=3000
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json ./server/
 
+# 复制 patches 目录（必需）
+COPY patches/ ./patches/
+
 # 安装所有依赖
 RUN pnpm install --frozen-lockfile
 
