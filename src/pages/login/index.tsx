@@ -1,18 +1,81 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
+import PrivacyDialog from '@/components/PrivacyDialog'
 
 // Logo 图片
 // @ts-ignore
 import logoImage from '@/assets/章鱼经纪人.jpeg'
 
+// 存储键名
+const PRIVACY_AGREED_KEY = 'privacy_agreed'
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false)
   const login = useUserStore((state) => state.login)
 
+  // 检查是否已同意隐私政策
+  useEffect(() => {
+    const checkPrivacyAgreed = async () => {
+      try {
+        const agreed = await Taro.getStorage({ key: PRIVACY_AGREED_KEY })
+        // 如果已经同意过，不显示弹窗
+        if (agreed.data === true) {
+          setShowPrivacyDialog(false)
+        } else {
+          // 未同意过，显示弹窗
+          setShowPrivacyDialog(true)
+        }
+      } catch (error) {
+        // 没有存储记录，显示弹窗
+        setShowPrivacyDialog(true)
+      }
+    }
+    checkPrivacyAgreed()
+  }, [])
+
+  // 同意隐私政策
+  const handleAgreePrivacy = async () => {
+    try {
+      await Taro.setStorage({
+        key: PRIVACY_AGREED_KEY,
+        data: true
+      })
+      setShowPrivacyDialog(false)
+    } catch (error) {
+      console.error('保存隐私同意状态失败:', error)
+    }
+  }
+
+  // 不同意隐私政策
+  const handleDisagreePrivacy = () => {
+    Taro.showModal({
+      title: '提示',
+      content: '您需要同意用户协议和隐私政策才能使用本小程序',
+      showCancel: false,
+      confirmText: '重新阅读',
+      success: () => {
+        setShowPrivacyDialog(true)
+      }
+    })
+  }
+
   const handleLogin = async () => {
+    // 先检查是否已同意隐私政策
+    try {
+      const agreed = await Taro.getStorage({ key: PRIVACY_AGREED_KEY })
+      if (!agreed.data) {
+        setShowPrivacyDialog(true)
+        return
+      }
+    } catch (error) {
+      setShowPrivacyDialog(true)
+      return
+    }
+
     if (loading) return
 
     setLoading(true)
@@ -161,12 +224,19 @@ export default function LoginPage() {
         </Text>
       </View>
 
-      {/* 说明 */}
+      {/* 说明 - 修复：不包含默认同意的表述 */}
       <View style={{ marginTop: '32px' }}>
         <Text style={{ fontSize: '12px', textAlign: 'center', color: '#9ca3af' }}>
-          登录即代表同意《用户协议》和《隐私政策》
+          点击登录按钮将弹出用户协议和隐私政策
         </Text>
       </View>
+
+      {/* 隐私政策弹窗 */}
+      <PrivacyDialog
+        visible={showPrivacyDialog}
+        onAgree={handleAgreePrivacy}
+        onDisagree={handleDisagreePrivacy}
+      />
     </View>
   )
 }

@@ -1,6 +1,8 @@
 export default defineAppConfig({
   pages: [
     'pages/login/index',
+    'pages/agreement/user-agreement/index',
+    'pages/agreement/privacy-policy/index',
     'pages/customers/index',
     'pages/customers/detail/index',
     'pages/customers/form/index',
