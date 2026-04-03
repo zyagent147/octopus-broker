@@ -1,47 +1,16 @@
 {
   "containerPort": 3000,
+  "dockerfilePath": "Dockerfile",
+  "buildDir": ".",
   "minNum": 1,
-  "maxNum": 5,
+  "maxNum": 10,
   "cpu": 0.5,
-  "mem": 512,
+  "mem": 0.5,
   "policyType": "cpu",
-  "policyThreshold": 80,
-  "customLogs": "stdout",
-  "initialDelaySeconds": 30,
+  "policyThreshold": 60,
   "envVariables": {
     "NODE_ENV": "production",
     "PORT": "3000"
   },
-  "envVariablesFromSecret": [
-    "WX_APP_ID",
-    "WX_APP_SECRET",
-    "JWT_SECRET",
-    "JWT_EXPIRES_IN",
-    "COS_SECRET_ID",
-    "COS_SECRET_KEY",
-    "COS_BUCKET_NAME",
-    "COS_REGION",
-    "COZE_SUPABASE_URL",
-    "COZE_SUPABASE_ANON_KEY"
-  ],
-  "healthCheckPath": "/api/hello",
-  "healthCheckHeaders": [],
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".",
-    "args": {}
-  },
-  "scalingPolicy": {
-    "metric": "cpu",
-    "targetUtilization": 80,
-    "scaleUpCooldown": 60,
-    "scaleDownCooldown": 300
-  },
-  "deploymentStrategy": {
-    "type": "RollingUpdate",
-    "rollingUpdate": {
-      "maxUnavailable": "25%",
-      "maxSurge": "25%"
-    }
-  }
+  "initialDelaySeconds": 30
 }
