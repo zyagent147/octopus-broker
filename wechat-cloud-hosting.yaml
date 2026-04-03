@@ -1,0 +1,117 @@
+# 微信云托管部署配置文件
+# 用于微信云托管控制台快速部署
+
+# 服务配置
+service:
+  name: octopus-broker-api
+  description: 章鱼经纪人后端API服务
+
+# 容器配置
+container:
+  # Dockerfile 路径（相对于项目根目录）
+  dockerfile: server/Dockerfile
+
+  # 构建上下文（项目根目录）
+  context: .
+
+  # 容器端口
+  port: 3000
+
+  # 容器规格
+  specs:
+    cpu: 0.5      # 0.5核CPU
+    memory: 512   # 512MB内存
+
+  # 副本数量
+  replicas:
+    min: 1
+    max: 10
+
+# 环境变量配置
+# ⚠️ 重要：以下变量需要在微信云托管控制台手动配置
+environment:
+  # 必需环境变量
+  - name: NODE_ENV
+    value: production
+
+  - name: PORT
+    value: "3000"
+
+  # 微信小程序配置（需替换为实际值）
+  - name: WX_APP_ID
+    value: "wxd244b605ba704aab"
+
+  - name: WX_APP_SECRET
+    value: "ca31d883d8f0587be93e9a10a8b8b85d"
+
+  # JWT 密钥（⚠️ 必须修改为强密码！）
+  - name: JWT_SECRET
+    value: "your-super-strong-jwt-secret-key-at-least-32-chars-long"
+
+  # Supabase 数据库配置（由 Coze 平台提供）
+  # 这些变量在微信云托管中需要手动配置
+  - name: COZE_SUPABASE_URL
+    value: "your-supabase-url"
+
+  - name: COZE_SUPABASE_ANON_KEY
+    value: "your-supabase-anon-key"
+
+  - name: COZE_SUPABASE_SERVICE_ROLE_KEY
+    value: "your-supabase-service-role-key"
+
+# 自动扩缩容配置
+autoscaling:
+  enabled: true
+
+  # CPU 使用率阈值
+  cpuThreshold: 70
+
+  # 内存使用率阈值
+  memoryThreshold: 80
+
+  # 最小副本数
+  minReplicas: 1
+
+  # 最大副本数
+  maxReplicas: 10
+
+# 健康检查配置
+healthCheck:
+  # 存活检查
+  liveness:
+    path: /api/hello
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # 就绪检查
+  readiness:
+    path: /api/hello
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# 日志配置
+logging:
+  enabled: true
+  retentionDays: 7
+
+# 网络配置
+networking:
+  # 是否开启公网访问
+  publicAccess: true
+
+  # 域名配置（可选）
+  # customDomain: api.yourdomain.com
+
+# 流量配置
+traffic:
+  # 流量策略：全量发布
+  strategy: full
+
+  # 灰度发布配置（可选）
+  # canary:
+  #   percentage: 10
+  #   duration: 300
