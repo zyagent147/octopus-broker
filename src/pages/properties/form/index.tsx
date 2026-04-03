@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { Camera, X } from 'lucide-react-taro'
+import { Camera, X, House } from 'lucide-react-taro'
 import { usePropertyStore } from '@/stores/property'
 import { Input } from '@/components/ui/input'
 
@@ -36,6 +36,7 @@ export default function PropertyFormPage() {
   
   const [form, setForm] = useState<PropertyForm>(initialForm)
   const [submitting, setSubmitting] = useState(false)
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set())
 
   // 从本地存储获取房源
   const getProperty = usePropertyStore(state => state.getProperty)
@@ -283,11 +284,21 @@ export default function PropertyFormPage() {
             <View className="flex flex-wrap gap-2">
               {form.images.map((img, index) => (
                 <View key={index} className="relative">
-                  <Image 
-                    src={img} 
-                    className="w-20 h-20 rounded-lg"
-                    mode="aspectFill"
-                  />
+                  {!imageErrors.has(index) ? (
+                    <Image 
+                      src={img} 
+                      className="w-20 h-20 rounded-lg"
+                      mode="aspectFill"
+                      onError={() => {
+                        console.log('房源表单图片加载失败:', index, img)
+                        setImageErrors(prev => new Set(prev).add(index))
+                      }}
+                    />
+                  ) : (
+                    <View className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <House size={24} color="#d1d5db" />
+                    </View>
+                  )}
                   <View 
                     className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
                     onClick={() => handleRemoveImage(index)}

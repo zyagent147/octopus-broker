@@ -21,6 +21,7 @@ export default function PropertyDetailPage() {
   const router = useRouter()
   const { id } = router.params
   const [showBills, setShowBills] = useState(false)
+  const [imageError, setImageError] = useState(false)
   
   // 从 store 获取原始数据和方法
   const properties = usePropertyStore(state => state.properties)
@@ -139,11 +140,15 @@ export default function PropertyDetailPage() {
       <ScrollView scrollY className="flex-1">
         {/* 房源图片 */}
         <View className="relative">
-          {property.images && property.images.length > 0 ? (
+          {property.images && property.images.length > 0 && !imageError ? (
             <Image 
               src={property.images[0]} 
               className="w-full h-64"
               mode="aspectFill"
+              onError={() => {
+                console.log('房源图片加载失败:', property.images[0])
+                setImageError(true)
+              }}
             />
           ) : (
             <View className="flex items-center justify-center h-64 bg-gray-100">

@@ -17,6 +17,7 @@ const statusConfig = {
 
 export default function PropertiesPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
   
   // 从本地存储获取原始数组
   const properties = usePropertyStore(state => state.properties)
@@ -163,11 +164,15 @@ export default function PropertiesPage() {
                     <View className="flex gap-3">
                       {/* 图片 */}
                       <View className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                        {property.images && property.images.length > 0 ? (
+                        {property.images && property.images.length > 0 && !imageErrors.has(property.id) ? (
                           <Image 
                             src={property.images[0]} 
                             className="w-full h-full"
                             mode="aspectFill"
+                            onError={() => {
+                              console.log('房源列表图片加载失败:', property.id, property.images[0])
+                              setImageErrors(prev => new Set(prev).add(property.id))
+                            }}
                           />
                         ) : (
                           <View className="flex items-center justify-center h-full">
