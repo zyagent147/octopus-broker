@@ -126,7 +126,7 @@ PORT=3000
 
 # 微信小程序配置
 WX_APP_ID=wxd244b605ba704aab
-WX_APP_SECRET=ca31d883d8f0587be93e9a10a8b8b85d
+WX_APP_SECRET=your-wechat-app-secret
 
 # JWT 密钥（⚠️ 必须修改！）
 JWT_SECRET=<使用 openssl rand -base64 32 生成>

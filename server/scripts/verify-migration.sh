@@ -4,7 +4,7 @@ echo "🔍 验证数据库迁移结果..."
 echo ""
 
 SUPABASE_URL="https://br-right-kea-1c046413.supabase2.aidap-global.cn-beijing.volces.com"
-ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjMzNTUxOTc1MTEsInJvbGUiOiJhbm9uIn0.fhHIWFyG7cuJJhcbgJrnqhBgcUmVup-THZe_HhihcO8"
+ANON_KEY="your-supabase-anon-key"
 
 echo "1️⃣ 检查 users 表结构（是否有 role 列）..."
 curl -s "$SUPABASE_URL/rest/v1/users?limit=1&select=id,role" \

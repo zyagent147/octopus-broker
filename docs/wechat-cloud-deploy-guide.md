@@ -16,14 +16,14 @@
 #### 微信小程序信息
 ```
 AppID: wxd244b605ba704aab
-AppSecret: ca31d883d8f0587be93e9a10a8b8b85d
+AppSecret: your-wechat-app-secret
 ```
 
 #### 腾讯云 COS 信息
 ```
 SecretId: your-cos-secret-id
-SecretKey: xgpkRt89wVt40gHoJeAczLcgX9WhiU0G
-Bucket: 7072-prod-9gchot580b331407-1416950024
+SecretKey: your-cos-secret-key
+Bucket: your-cos-bucket-name
 Region: ap-shanghai
 ```
 
@@ -58,16 +58,16 @@ Region: ap-shanghai
 ```bash
 # 微信小程序配置
 WX_APP_ID=wxd244b605ba704aab
-WX_APP_SECRET=ca31d883d8f0587be93e9a10a8b8b85d
+WX_APP_SECRET=your-wechat-app-secret
 
 # JWT 配置
-JWT_SECRET=zhangyu-broker-jwt-secret-2024-production
+JWT_SECRET=your-jwt-secret-key
 JWT_EXPIRES_IN=30d
 
 # 腾讯云 COS 存储
 COS_SECRET_ID=your-cos-secret-id
-COS_SECRET_KEY=xgpkRt89wVt40gHoJeAczLcgX9WhiU0G
-COS_BUCKET_NAME=7072-prod-9gchot580b331407-1416950024
+COS_SECRET_KEY=your-cos-secret-key
+COS_BUCKET_NAME=your-cos-bucket-name
 COS_REGION=ap-shanghai
 
 # Supabase 数据库（需要替换为实际值）

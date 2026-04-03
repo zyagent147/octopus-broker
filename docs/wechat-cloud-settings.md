@@ -239,21 +239,21 @@ https://octopus-broker-prod-xxx.sh.run.tcloudbase.com
 ```
 # 微信小程序配置
 WX_APP_ID=wxd244b605ba704aab
-WX_APP_SECRET=ca31d883d8f0587be93e9a10a8b8b85d
+WX_APP_SECRET=your-wechat-app-secret
 
 # JWT 认证配置
-JWT_SECRET=zhangyu-broker-jwt-secret-2024-production
+JWT_SECRET=your-jwt-secret-key
 JWT_EXPIRES_IN=30d
 
 # 腾讯云 COS 存储
 COS_SECRET_ID=your-cos-secret-id
-COS_SECRET_KEY=xgpkRt89wVt40gHoJeAczLcgX9WhiU0G
-COS_BUCKET_NAME=7072-prod-9gchot580b331407-1416950024
+COS_SECRET_KEY=your-cos-secret-key
+COS_BUCKET_NAME=your-cos-bucket-name
 COS_REGION=ap-shanghai
 
 # Supabase 数据库
 COZE_SUPABASE_URL=https://br-right-kea-1c046413.supabase2.aidap-global.cn-beijing.volces.com
-COZE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjMzNTUxOTc1MTEsInJvbGUiOiJhbm9uIn0.fhHIWFyG7cuJJhcbgJrnqhBgcUmVup-THZe_HhihcO8
+COZE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 # Node.js 环境
 NODE_ENV=production
