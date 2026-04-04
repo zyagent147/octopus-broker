@@ -15,6 +15,13 @@ RUN apk add --no-cache python3 py3-pip curl bash && \
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# 微信小程序配置
+ENV WX_APP_ID=wxd244b605ba704aab
+ENV WX_APP_SECRET=ca31d883d8f0587be93e9a10a8b8b85d
+
+# JWT 认证配置
+ENV JWT_SECRET=zhangyu-broker-secret-key-2024
+
 # 复制 package 文件
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json ./server/
