@@ -17,7 +17,7 @@ ENV PORT=3000
 
 # 微信小程序配置
 ENV WX_APP_ID=wxd244b605ba704aab
-ENV WX_APP_SECRET=ca31d883d8f0587be93e9a10a8b8b85d
+ENV WX_APP_SECRET=36ffd9db24774a553f9cf9bff0ca934f
 
 # JWT 认证配置
 ENV JWT_SECRET=zhangyu-broker-secret-key-2024
