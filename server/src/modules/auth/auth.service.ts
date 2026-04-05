@@ -33,8 +33,8 @@ export class AuthService {
     const wxAppId = process.env.WX_APP_ID
     const wxAppSecret = process.env.WX_APP_SECRET
 
-    this.logger.log(`WX_APP_ID: ${wxAppId ? '已配置' : '未配置'}`)
-    this.logger.log(`WX_APP_SECRET: ${wxAppSecret ? '已配置' : '未配置'}`)
+    this.logger.log(`WX_APP_ID: ${wxAppId || '未配置'}`)
+    this.logger.log(`WX_APP_SECRET: ${wxAppSecret ? `${wxAppSecret.substring(0, 8)}***` : '未配置'}`)
 
     // 如果没有配置微信AppID和Secret，返回错误
     if (!wxAppId || !wxAppSecret) {
@@ -53,7 +53,7 @@ export class AuthService {
       })
       
       this.logger.log('微信API响应成功')
-      this.logger.debug(`响应数据: ${JSON.stringify(response.data)}`)
+      this.logger.log(`响应数据: ${JSON.stringify(response.data)}`)
 
       const { openid, errcode, errmsg } = response.data
 
@@ -64,9 +64,9 @@ export class AuthService {
         // 根据错误码返回具体错误信息
         let errorMsg = `微信登录失败: ${errmsg}`
         if (errcode === 40029) errorMsg = 'code无效，请重新登录'
+        else if (errcode === 40013) errorMsg = 'AppID无效，请检查配置'
+        else if (errcode === 40163) errorMsg = 'code已被使用，请重新登录'
         else if (errcode === 45011) errorMsg = '频率限制，请稍后再试'
-        else if (errcode === 40013) errorMsg = 'AppID无效'
-        else if (errcode === 40163) errorMsg = 'code已被使用'
         else if (errcode === -1) errorMsg = '系统繁忙，请稍后再试'
         
         throw new UnauthorizedException(errorMsg)

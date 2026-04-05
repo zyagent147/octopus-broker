@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Post, Get, Body, UseGuards, Request, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { JwtAuthGuard } from './jwt-auth.guard'
 import { z } from 'zod'
@@ -38,12 +38,31 @@ export class AuthController {
     }
 
     const { code } = result.data
-    const loginResult = await this.authService.wechatLogin(code)
+    
+    try {
+      const loginResult = await this.authService.wechatLogin(code)
 
-    return {
-      code: 200,
-      msg: '登录成功',
-      data: loginResult,
+      return {
+        code: 200,
+        msg: '登录成功',
+        data: loginResult,
+      }
+    } catch (error) {
+      // 统一错误格式返回
+      if (error instanceof UnauthorizedException) {
+        const errorMessage = error.message
+        return {
+          code: 401,
+          msg: errorMessage,
+          data: null,
+        }
+      }
+      // 其他错误
+      return {
+        code: 500,
+        msg: error.message || '登录失败，请稍后重试',
+        data: null,
+      }
     }
   }
 
