@@ -82,6 +82,11 @@ const ProfilePage: FC = () => {
     })
   }
 
+  // 跳转到编辑资料页面
+  const handleEditProfile = () => {
+    Taro.navigateTo({ url: '/pages/profile/edit/index' })
+  }
+
   const menuItems = [
     { icon: Download, label: '导出本地数据', action: () => handleExportData() },
     { icon: FileText, label: '隐私协议', action: () => Taro.navigateTo({ url: '/pages/agreement/privacy-policy/index' }) },
@@ -102,7 +107,7 @@ const ProfilePage: FC = () => {
   return (
     <View className="min-h-screen bg-gray-50">
       {/* 用户信息卡片 */}
-      <View className="bg-blue-500 pt-12 pb-8 px-4">
+      <View className="bg-blue-500 pt-12 pb-8 px-4" onClick={handleEditProfile}>
         <View className="flex items-center">
           <View className="w-16 h-16 bg-white rounded-full flex items-center justify-center overflow-hidden">
             <Image 
