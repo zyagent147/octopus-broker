@@ -8,7 +8,8 @@ import { usePropertyStore } from '@/stores/property'
 import { useLeaseStore } from '@/stores/lease'
 import { useBillStore, isBillOverdue } from '@/stores/bill'
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, FileText, LogOut, ChevronRight, Shield } from 'lucide-react-taro'
+import { Settings, FileText, LogOut, ChevronRight, Shield, Download } from 'lucide-react-taro'
+import { handleExportData } from '@/utils/data-export'
 
 // 默认头像 - 使用 import 导入
 // @ts-ignore
@@ -82,7 +83,8 @@ const ProfilePage: FC = () => {
   }
 
   const menuItems = [
-    { icon: FileText, label: '隐私协议', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
+    { icon: Download, label: '导出本地数据', action: () => handleExportData() },
+    { icon: FileText, label: '隐私协议', action: () => Taro.navigateTo({ url: '/pages/agreement/privacy-policy/index' }) },
     { icon: Settings, label: '全局提醒设置', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
   ]
 

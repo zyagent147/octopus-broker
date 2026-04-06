@@ -1,12 +1,13 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Search, Plus, Phone, Calendar, Users, Bell, X, Check, Gift, FileText, DollarSign } from 'lucide-react-taro'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useCustomerStore } from '@/stores/customer'
 import { useReminderStore, getDaysUntilDue, type Reminder } from '@/stores/reminder'
+import { DataWarningDialog, checkDataWarning, acknowledgeDataWarning } from '@/components/data-warning-dialog'
 
 const statusMap = {
   pending: { label: '待跟进', color: 'bg-orange-100 text-orange-600' },
@@ -29,6 +30,19 @@ const reminderTypeConfig = {
 export default function CustomersPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [showDataWarning, setShowDataWarning] = useState(false)
+
+  // 检查是否需要显示数据警告
+  useEffect(() => {
+    checkDataWarning().then(needShow => {
+      setShowDataWarning(needShow)
+    })
+  }, [])
+
+  const handleCloseDataWarning = async () => {
+    await acknowledgeDataWarning()
+    setShowDataWarning(false)
+  }
 
   // 从本地存储获取原始数组（不要在 selector 中调用函数！）
   const customers = useCustomerStore(state => state.customers)
@@ -273,6 +287,9 @@ export default function CustomersPage() {
           </View>
         )}
       </ScrollView>
+
+      {/* 数据安全警告提示 */}
+      <DataWarningDialog visible={showDataWarning} onClose={handleCloseDataWarning} />
 
       {/* 底部统计 */}
       <View 
