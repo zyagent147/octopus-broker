@@ -15,12 +15,9 @@ RUN apk add --no-cache python3 py3-pip curl bash postgresql-client && \
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# 微信小程序配置
+# 微信小程序配置（生产环境应在微信云托管控制台配置，此处仅为默认值）
 ENV WX_APP_ID=wxd244b605ba704aab
-ENV WX_APP_SECRET=36ffd9db24774a553f9cf9bff0ca934f
-
-# JWT 认证配置
-ENV JWT_SECRET=zhangyu-broker-secret-key-2024
+# WX_APP_SECRET 和 JWT_SECRET 应在微信云托管控制台配置，不要在此处硬编码
 
 # 复制 package 文件
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -49,6 +46,10 @@ EXPOSE 3000
 # 创建启动脚本
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'echo "=== 启动服务 ===" ' >> /app/start.sh && \
+    echo 'echo "NODE_ENV: $NODE_ENV" ' >> /app/start.sh && \
+    echo 'echo "PORT: $PORT" ' >> /app/start.sh && \
+    echo 'echo "WX_APP_ID: $WX_APP_ID" ' >> /app/start.sh && \
+    echo 'echo "COZE_SUPABASE_URL: ${COZE_SUPABASE_URL:-(not set)}" ' >> /app/start.sh && \
     echo 'cd /app/server && node dist/main.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 

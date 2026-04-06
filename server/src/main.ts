@@ -11,6 +11,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // 数据库初始化 SQL
 const INIT_TABLES_SQL = `
+-- 用户表
 CREATE TABLE IF NOT EXISTS users (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     openid varchar(128) UNIQUE NOT NULL,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at timestamp with time zone
 );
 
+-- 客户表
 CREATE TABLE IF NOT EXISTS customers (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -40,15 +42,17 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at timestamp with time zone
 );
 
+-- 跟进记录表
 CREATE TABLE IF NOT EXISTS follow_ups (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id varchar(36) NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content text NOT NULL,
-    next_follow_date date,
+    follow_time timestamp with time zone,
     created_at timestamp with time zone DEFAULT NOW() NOT NULL
 );
 
+-- 房源表
 CREATE TABLE IF NOT EXISTS properties (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -64,6 +68,7 @@ CREATE TABLE IF NOT EXISTS properties (
     updated_at timestamp with time zone
 );
 
+-- 租约表
 CREATE TABLE IF NOT EXISTS leases (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id varchar(36) NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -80,20 +85,44 @@ CREATE TABLE IF NOT EXISTS leases (
     updated_at timestamp with time zone
 );
 
+-- 账单表（关联租约，用于租约账单管理）
 CREATE TABLE IF NOT EXISTS bills (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     lease_id varchar(36) NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    bill_date date NOT NULL,
+    property_id varchar(36) REFERENCES properties(id) ON DELETE SET NULL,
+    period_index integer NOT NULL,
+    period_start date NOT NULL,
+    period_end date NOT NULL,
+    due_date date NOT NULL,
     amount decimal(12, 2) NOT NULL,
-    bill_type varchar(20) NOT NULL DEFAULT 'rent',
     status varchar(20) NOT NULL DEFAULT 'pending',
-    paid_date date,
+    paid_at timestamp with time zone,
+    paid_amount decimal(12, 2),
     remark text,
     created_at timestamp with time zone DEFAULT NOW() NOT NULL,
     updated_at timestamp with time zone
 );
 
+-- 租金账单表（关联房源，用于租金提醒）
+CREATE TABLE IF NOT EXISTS rent_bills (
+    id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    property_id varchar(36) NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    tenant_name varchar(64),
+    tenant_phone varchar(20),
+    amount decimal(12, 2) NOT NULL,
+    payment_cycle varchar(20) NOT NULL DEFAULT 'monthly',
+    custom_days integer,
+    bill_date integer NOT NULL,
+    next_due_date date NOT NULL,
+    status varchar(20) NOT NULL DEFAULT 'pending',
+    paid_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT NOW() NOT NULL,
+    updated_at timestamp with time zone
+);
+
+-- 服务商表
 CREATE TABLE IF NOT EXISTS providers (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     service_type varchar(20) NOT NULL,
@@ -111,20 +140,25 @@ CREATE TABLE IF NOT EXISTS providers (
     updated_at timestamp with time zone
 );
 
+-- 服务预约表（生活服务）
 CREATE TABLE IF NOT EXISTS services (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    service_type varchar(20),
+    title varchar(100) NOT NULL,
     provider_id varchar(36) REFERENCES providers(id) ON DELETE SET NULL,
-    service_type varchar(20) NOT NULL,
-    property_id varchar(36) REFERENCES properties(id) ON DELETE SET NULL,
-    scheduled_date date NOT NULL,
+    provider_name varchar(64),
+    provider_phone varchar(20),
+    price decimal(12, 2),
     status varchar(20) NOT NULL DEFAULT 'pending',
-    cost decimal(12, 2),
-    remark text,
+    scheduled_date date,
+    address varchar(256),
+    notes text,
     created_at timestamp with time zone DEFAULT NOW() NOT NULL,
     updated_at timestamp with time zone
 );
 
+-- 提醒表
 CREATE TABLE IF NOT EXISTS reminders (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -137,6 +171,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     created_at timestamp with time zone DEFAULT NOW() NOT NULL
 );
 
+-- 用户设置表
 CREATE TABLE IF NOT EXISTS user_settings (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -147,11 +182,18 @@ CREATE TABLE IF NOT EXISTS user_settings (
     updated_at timestamp with time zone
 );
 
+-- 创建索引
 CREATE INDEX IF NOT EXISTS idx_users_openid ON users(openid);
 CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
+CREATE INDEX IF NOT EXISTS idx_follow_ups_customer_id ON follow_ups(customer_id);
 CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
 CREATE INDEX IF NOT EXISTS idx_leases_user_id ON leases(user_id);
+CREATE INDEX IF NOT EXISTS idx_leases_property_id ON leases(property_id);
 CREATE INDEX IF NOT EXISTS idx_bills_user_id ON bills(user_id);
+CREATE INDEX IF NOT EXISTS idx_bills_lease_id ON bills(lease_id);
+CREATE INDEX IF NOT EXISTS idx_rent_bills_user_id ON rent_bills(user_id);
+CREATE INDEX IF NOT EXISTS idx_rent_bills_property_id ON rent_bills(property_id);
+CREATE INDEX IF NOT EXISTS idx_rent_bills_status ON rent_bills(status);
 CREATE INDEX IF NOT EXISTS idx_services_user_id ON services(user_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
 `;
