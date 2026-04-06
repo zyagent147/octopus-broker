@@ -13,7 +13,7 @@ import { Camera } from 'lucide-react-taro'
 import defaultAvatar from '@/assets/章鱼经纪人.jpeg'
 
 const EditProfilePage: FC = () => {
-  const { user, updateUser } = useUserStore()
+  const { user, updateUser, updateUserToCloud } = useUserStore()
   
   const [nickname, setNickname] = useState('')
   const [phone, setPhone] = useState('')
@@ -61,14 +61,25 @@ const EditProfilePage: FC = () => {
 
     setIsSubmitting(true)
     try {
-      // 更新用户信息
+      // 更新本地数据
       updateUser({
         nickname: nickname.trim(),
         phone: phone.trim() || undefined,
         avatar: avatar || undefined,
       })
       
-      Taro.showToast({ title: '保存成功', icon: 'success' })
+      // 同步到云端
+      const success = await updateUserToCloud({
+        nickname: nickname.trim(),
+        phone: phone.trim() || undefined,
+        avatar: avatar || undefined,
+      })
+      
+      if (success) {
+        Taro.showToast({ title: '保存成功', icon: 'success' })
+      } else {
+        Taro.showToast({ title: '已保存到本地', icon: 'none' })
+      }
       
       // 延迟返回，让用户看到成功提示
       setTimeout(() => {
@@ -152,9 +163,9 @@ const EditProfilePage: FC = () => {
 
       {/* 提示 */}
       <View className="px-4 mt-4">
-        <View className="bg-gray-100 rounded-xl p-4">
-          <Text className="block text-sm text-gray-500">
-            💡 提示：您的数据存储在本地设备，换设备后数据不会自动同步。建议定期使用「导出本地数据」功能备份重要数据。
+        <View className="bg-blue-50 rounded-xl p-4">
+          <Text className="block text-sm text-blue-700">
+            💡 提示：您的用户资料已同步到云端，换设备登录后可自动恢复。
           </Text>
         </View>
       </View>

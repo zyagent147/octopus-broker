@@ -1,11 +1,11 @@
 /**
  * 数据安全提示组件
- * 在用户首次使用或每次进入关键页面时显示数据存储风险提示
+ * 在用户首次使用或每次进入关键页面时显示数据存储说明
  */
 
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { CircleAlert } from 'lucide-react-taro'
+import { Cloud } from 'lucide-react-taro'
 
 const STORAGE_KEY = 'data_warning_acknowledged'
 
@@ -18,54 +18,62 @@ export function DataWarningDialog({ visible, onClose }: DataWarningDialogProps) 
   if (!visible) return null
 
   return (
-    <View className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <View 
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+    >
       <View className="bg-white rounded-2xl mx-6 w-full max-w-sm overflow-hidden">
         {/* 标题 */}
-        <View className="bg-orange-50 px-6 py-4 flex items-center gap-3">
-          <CircleAlert size={24} color="#f59e0b" />
-          <Text className="text-lg font-semibold text-orange-800">数据安全提示</Text>
+        <View className="bg-blue-50 px-6 py-4 flex items-center gap-3">
+          <Cloud size={24} color="#1890ff" />
+          <Text className="text-lg font-semibold text-blue-800">数据同步说明</Text>
         </View>
 
         {/* 内容 */}
         <View className="px-6 py-5">
           <Text className="block text-gray-700 text-sm leading-6 mb-4">
-            您的数据（客户、房源、租约、账单）目前存储在<Text className="font-bold text-orange-600">本机设备</Text>中。
+            您的数据已采用分层存储策略：
           </Text>
 
-          <Text className="block text-gray-700 text-sm leading-6 mb-4">
-            <Text className="font-bold">风险提醒：</Text>
-          </Text>
-
-          <View className="bg-orange-50 rounded-xl px-4 py-3 mb-4">
-            <Text className="block text-orange-700 text-sm leading-6">
-              • 更换手机或清除缓存将导致数据丢失{'\n'}
-              • 删除小程序将导致数据无法恢复{'\n'}
-              • 无法跨设备同步数据
+          {/* 云端存储 */}
+          <View className="bg-green-50 rounded-xl px-4 py-3 mb-3">
+            <View className="flex items-center gap-2 mb-2">
+              <View className="w-2 h-2 rounded-full bg-green-500" />
+              <Text className="font-bold text-green-700">已同步到云端</Text>
+            </View>
+            <Text className="block text-green-700 text-sm leading-5">
+              • 用户资料{'\n'}
+              • 客户信息{'\n'}
+              • 客户跟进记录
             </Text>
           </View>
 
-          <Text className="block text-gray-700 text-sm leading-6 mb-4">
-            <Text className="font-bold">建议：</Text>定期导出数据备份到云端或电脑。
+          {/* 本地存储 */}
+          <View className="bg-orange-50 rounded-xl px-4 py-3 mb-4">
+            <View className="flex items-center gap-2 mb-2">
+              <View className="w-2 h-2 rounded-full bg-orange-500" />
+              <Text className="font-bold text-orange-700">仅存储在本地</Text>
+            </View>
+            <Text className="block text-orange-700 text-sm leading-5">
+              • 房源信息{'\n'}
+              • 租约信息{'\n'}
+              • 账单记录{'\n'}
+              • 提醒设置
+            </Text>
+          </View>
+
+          <Text className="block text-gray-700 text-sm leading-6">
+            <Text className="font-bold">提示：</Text>可前往「我的」→「导出本地数据」备份本地数据。
           </Text>
         </View>
 
         {/* 按钮 */}
-        <View className="px-6 pb-6 flex gap-3">
+        <View className="px-6 pb-6">
           <View
-            className="flex-1 h-11 bg-gray-100 rounded-xl flex items-center justify-center"
+            className="h-11 bg-blue-500 rounded-xl flex items-center justify-center"
             onClick={onClose}
           >
-            <Text className="text-gray-600 text-sm">知道了</Text>
-          </View>
-          <View
-            className="flex-1 h-11 bg-blue-500 rounded-xl flex items-center justify-center"
-            onClick={() => {
-              // 跳转到个人中心导出数据
-              onClose()
-              Taro.switchTab({ url: '/pages/profile/index' })
-            }}
-          >
-            <Text className="text-white text-sm">去备份</Text>
+            <Text className="text-white text-sm font-medium">我知道了</Text>
           </View>
         </View>
       </View>

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useCustomerStore } from '@/stores/customer'
 import { useReminderStore, getDaysUntilDue, type Reminder } from '@/stores/reminder'
 import { DataWarningDialog, checkDataWarning, acknowledgeDataWarning } from '@/components/data-warning-dialog'
+import { useUserStore } from '@/stores/user'
 
 const statusMap = {
   pending: { label: '待跟进', color: 'bg-orange-100 text-orange-600' },
@@ -32,12 +33,24 @@ export default function CustomersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showDataWarning, setShowDataWarning] = useState(false)
 
+  // 获取用户登录状态和云端同步方法
+  const isLoggedIn = useUserStore(state => state.isLoggedIn)
+  const fetchFromCloud = useCustomerStore(state => state.fetchFromCloud)
+  const isLoading = useCustomerStore(state => state.isLoading)
+
   // 检查是否需要显示数据警告
   useEffect(() => {
     checkDataWarning().then(needShow => {
       setShowDataWarning(needShow)
     })
   }, [])
+
+  // 登录后自动从云端同步客户数据
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchFromCloud()
+    }
+  }, [isLoggedIn, fetchFromCloud])
 
   const handleCloseDataWarning = async () => {
     await acknowledgeDataWarning()
@@ -201,7 +214,14 @@ export default function CustomersPage() {
 
       {/* 状态筛选 */}
       <View className="bg-white px-4 py-2 border-b border-gray-100">
-        <View className="flex gap-2">
+        <View className="flex gap-2 items-center">
+          {/* 同步状态提示 */}
+          {isLoading && (
+            <View className="flex items-center mr-2">
+              <View className="w-2 h-2 rounded-full bg-blue-500 animate-pulse mr-1" />
+              <Text className="text-xs text-blue-500">同步中...</Text>
+            </View>
+          )}
           <Badge
             className={`shrink-0 px-3 py-1 rounded-full ${statusFilter === 'all' ? 'bg-sky-500 text-white' : 'bg-gray-100 text-gray-600'}`}
             onClick={() => setStatusFilter('all')}

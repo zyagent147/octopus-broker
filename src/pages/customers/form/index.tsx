@@ -109,10 +109,10 @@ export default function CustomerFormPage() {
       let savedCustomerId = customerId
       
       if (isEdit) {
-        updateCustomer(customerId!, submitData)
+        await updateCustomer(customerId!, submitData)
         Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
-        const newCustomer = addCustomer(submitData)
+        const newCustomer = await addCustomer(submitData)
         savedCustomerId = newCustomer.id
         Taro.showToast({ title: '添加成功', icon: 'success' })
       }
