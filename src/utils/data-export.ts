@@ -1,6 +1,7 @@
 /**
  * 数据导出工具
  * 用于将本地数据导出为 JSON 文件，便于用户备份
+ * 支持微信小程序和 H5 环境
  */
 
 import Taro from '@tarojs/taro'
@@ -42,8 +43,28 @@ function getLocalData() {
 }
 
 /**
+ * H5 环境下的文件下载
+ */
+function downloadInH5(jsonString: string, fileName: string) {
+  // 创建 Blob
+  const blob = new Blob([jsonString], { type: 'application/json' })
+  // 创建下载链接
+  const url = URL.createObjectURL(blob)
+  // 创建 a 标签并触发下载
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  // 清理
+  URL.revokeObjectURL(url)
+}
+
+/**
  * 导出数据到文件
  * 将所有本地数据导出为 JSON 文件并保存到用户设备
+ * 支持微信小程序和 H5 环境
  */
 export async function exportDataToFile(): Promise<{ success: boolean; filePath?: string; error?: string }> {
   try {
@@ -66,35 +87,59 @@ export async function exportDataToFile(): Promise<{ success: boolean; filePath?:
     const jsonString = JSON.stringify(backupData, null, 2)
     const fileName = `zhangyu_backup_${formatDate(new Date())}.json`
 
-    // 使用 Taro.saveFile 保存文件到临时目录
-    const fs = Taro.getFileSystemManager()
-    
-    // 生成临时文件路径
-    const tempFilePath = `${Taro.env.USER_DATA_PATH}/${fileName}`
+    // 检测运行环境
+    const env = Taro.getEnv()
 
-    // 写入文件
-    await new Promise<void>((resolve, reject) => {
-      fs.writeFile({
-        filePath: tempFilePath,
+    // H5 环境使用 Blob 下载
+    if (env === Taro.ENV_TYPE.WEB) {
+      downloadInH5(jsonString, fileName)
+      return {
+        success: true,
+        filePath: '浏览器下载',
+      }
+    }
+
+    // 微信小程序环境使用文件 API
+    try {
+      const fs = Taro.getFileSystemManager()
+
+      // 生成临时文件路径
+      const tempFilePath = `${Taro.env.USER_DATA_PATH}/${fileName}`
+
+      // 写入文件
+      await new Promise<void>((resolve, reject) => {
+        fs.writeFile({
+          filePath: tempFilePath,
+          data: jsonString,
+          encoding: 'utf8',
+          success: () => resolve(),
+          fail: (err) => reject(err),
+        })
+      })
+
+      // 保存到用户相册/文件目录
+      const savedFilePath = await new Promise<string>((resolve, reject) => {
+        Taro.saveFile({
+          tempFilePath,
+          success: (res) => resolve(res.savedFilePath),
+          fail: (err) => reject(err),
+        })
+      })
+
+      return {
+        success: true,
+        filePath: savedFilePath,
+      }
+    } catch {
+      // 文件 API 失败，fallback 到复制内容
+      // 将 JSON 内容复制到剪贴板
+      await Taro.setClipboardData({
         data: jsonString,
-        encoding: 'utf8',
-        success: () => resolve(),
-        fail: (err) => reject(err),
       })
-    })
-
-    // 保存到用户相册/文件目录
-    const savedFilePath = await new Promise<string>((resolve, reject) => {
-      Taro.saveFile({
-        tempFilePath,
-        success: (res) => resolve(res.savedFilePath),
-        fail: (err) => reject(err),
-      })
-    })
-
-    return {
-      success: true,
-      filePath: savedFilePath,
+      return {
+        success: true,
+        filePath: '剪贴板',
+      }
     }
   } catch (error: any) {
     console.error('导出数据失败:', error)
@@ -141,9 +186,21 @@ export async function handleExportData() {
   Taro.hideLoading()
 
   if (result.success) {
+    // 根据环境显示不同提示
+    const env = Taro.getEnv()
+    let content = ''
+
+    if (env === Taro.ENV_TYPE.WEB) {
+      content = `已触发浏览器下载 ${stats.totalItems} 条数据。\n\n请在浏览器下载管理中找到文件保存。\n\n建议：将文件保存到云端或电脑进行备份，换手机后可导入恢复数据。`
+    } else if (result.filePath === '剪贴板') {
+      content = `已复制 ${stats.totalItems} 条数据到剪贴板。\n\n请打开微信文件传输助手或其他应用粘贴保存。`
+    } else {
+      content = `已导出 ${stats.totalItems} 条数据到文件。\n\n文件路径：${result.filePath}\n\n建议：将文件保存到云端或电脑进行备份，换手机后可导入恢复数据。`
+    }
+
     Taro.showModal({
       title: '导出成功',
-      content: `已导出 ${stats.totalItems} 条数据到文件。\n\n文件路径：${result.filePath}\n\n建议：将文件保存到云端或电脑进行备份，换手机后可导入恢复数据。`,
+      content,
       showCancel: false,
       confirmText: '知道了',
     })
