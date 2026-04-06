@@ -153,9 +153,11 @@ export class AuthService {
 
   /**
    * 创建或获取用户（使用 Supabase 数据库）
+   * 使用 service_role 绕过 RLS，确保可以创建新用户
    */
   private async createOrGetUser(openid: string, nickname?: string, role?: string) {
-    const client = getSupabaseClient()
+    // 使用 service_role 绕过 RLS，确保可以创建用户
+    const client = getSupabaseClient(undefined, true)
     
     // 1. 查询用户是否已存在
     const { data: existingUser, error: queryError } = await client
