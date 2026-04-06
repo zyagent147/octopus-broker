@@ -16,6 +16,7 @@ export default defineAppConfig({
     'pages/admin/providers/index',
     'pages/admin/providers/form/index',
     'pages/profile/index',
+    'pages/settings/reminder/index',
   ],
   window: {
     backgroundTextStyle: 'light',

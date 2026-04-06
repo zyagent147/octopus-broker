@@ -85,7 +85,7 @@ const ProfilePage: FC = () => {
   const menuItems = [
     { icon: Download, label: '导出本地数据', action: () => handleExportData() },
     { icon: FileText, label: '隐私协议', action: () => Taro.navigateTo({ url: '/pages/agreement/privacy-policy/index' }) },
-    { icon: Settings, label: '全局提醒设置', action: () => Taro.showToast({ title: '功能开发中', icon: 'none' }) },
+    { icon: Settings, label: '全局提醒设置', action: () => Taro.navigateTo({ url: '/pages/settings/reminder/index' }) },
   ]
 
   // 管理员菜单项
