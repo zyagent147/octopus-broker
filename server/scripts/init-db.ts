@@ -1,16 +1,13 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '@/app.module';
-import * as express from 'express';
-import { HttpStatusInterceptor } from '@/interceptors/http-status.interceptor';
+import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { Pool } from 'pg';
 
-// 手动加载 .env 文件（必须在 AppModule 初始化之前）
+// 加载环境变量
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // 数据库初始化 SQL
-const INIT_TABLES_SQL = `
+const INIT_SQL = `
+-- 1. 用户表
 CREATE TABLE IF NOT EXISTS users (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     openid varchar(128) UNIQUE NOT NULL,
@@ -22,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at timestamp with time zone
 );
 
+-- 2. 客户表
 CREATE TABLE IF NOT EXISTS customers (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -40,6 +38,7 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at timestamp with time zone
 );
 
+-- 3. 跟进记录表
 CREATE TABLE IF NOT EXISTS follow_ups (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id varchar(36) NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -49,6 +48,7 @@ CREATE TABLE IF NOT EXISTS follow_ups (
     created_at timestamp with time zone DEFAULT NOW() NOT NULL
 );
 
+-- 4. 房源表
 CREATE TABLE IF NOT EXISTS properties (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS properties (
     updated_at timestamp with time zone
 );
 
+-- 5. 租约表
 CREATE TABLE IF NOT EXISTS leases (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id varchar(36) NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -80,6 +81,7 @@ CREATE TABLE IF NOT EXISTS leases (
     updated_at timestamp with time zone
 );
 
+-- 6. 账单表
 CREATE TABLE IF NOT EXISTS bills (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     lease_id varchar(36) NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
@@ -94,6 +96,7 @@ CREATE TABLE IF NOT EXISTS bills (
     updated_at timestamp with time zone
 );
 
+-- 7. 服务商表
 CREATE TABLE IF NOT EXISTS providers (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     service_type varchar(20) NOT NULL,
@@ -111,6 +114,7 @@ CREATE TABLE IF NOT EXISTS providers (
     updated_at timestamp with time zone
 );
 
+-- 8. 服务记录表
 CREATE TABLE IF NOT EXISTS services (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -125,6 +129,7 @@ CREATE TABLE IF NOT EXISTS services (
     updated_at timestamp with time zone
 );
 
+-- 9. 提醒表
 CREATE TABLE IF NOT EXISTS reminders (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -137,6 +142,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     created_at timestamp with time zone DEFAULT NOW() NOT NULL
 );
 
+-- 10. 用户设置表
 CREATE TABLE IF NOT EXISTS user_settings (
     id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(36) UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -147,6 +153,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
     updated_at timestamp with time zone
 );
 
+-- 创建索引
 CREATE INDEX IF NOT EXISTS idx_users_openid ON users(openid);
 CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
 CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
@@ -157,105 +164,47 @@ CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
 `;
 
 /**
- * 初始化数据库表
+ * 初始化数据库
  */
 async function initDatabase() {
-  const supabaseUrl = process.env.COZE_SUPABASE_URL;
-  const dbPassword = process.env.COZE_SUPABASE_DB_PASSWORD;
+  console.log('[DB Init] 开始初始化数据库...');
   
-  if (!supabaseUrl) {
-    console.log('[Database] 未找到 COZE_SUPABASE_URL，跳过自动初始化');
-    return;
+  // 获取数据库连接信息
+  const databaseUrl = process.env.PGDATABASE_URL || process.env.DATABASE_URL;
+  
+  if (!databaseUrl) {
+    console.log('[DB Init] 未找到数据库连接信息，跳过初始化');
+    return true;
   }
   
-  // 从 Supabase URL 提取项目 ref
-  const match = supabaseUrl.match(/https:\/\/([a-z0-9]+)\.supabase\.co/);
-  if (!match) {
-    console.log('[Database] 无法解析 Supabase URL，跳过自动初始化');
-    return;
-  }
-  
-  const projectRef = match[1];
-  
-  // 构建数据库连接字符串
-  // Supabase PostgreSQL 连接格式: postgresql://postgres.[ref]:[password]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres
-  // 或直接连接: postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres
-  
-  let connectionString = process.env.COZE_DATABASE_URL;
-  
-  // 如果没有直接的数据库 URL，尝试使用密码构建
-  if (!connectionString && dbPassword) {
-    // 使用 pooler 连接（推荐用于服务端）
-    connectionString = `postgresql://postgres.${projectRef}:${dbPassword}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
-  }
-  
-  if (!connectionString) {
-    console.log('[Database] 未找到数据库连接信息，跳过自动初始化');
-    console.log('[Database] 提示：请设置 COZE_DATABASE_URL 或 COZE_SUPABASE_DB_PASSWORD 环境变量');
-    return;
-  }
-  
-  console.log('[Database] 检查并初始化数据库表...');
+  console.log('[DB Init] 使用 PostgreSQL 连接初始化数据库');
   
   const pool = new Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
+    connectionString: databaseUrl,
+    ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
   });
   
   try {
-    await pool.query(INIT_TABLES_SQL);
-    console.log('[Database] 数据库表初始化完成');
+    // 执行初始化 SQL
+    await pool.query(INIT_SQL);
+    console.log('[DB Init] 数据库表初始化成功！');
+    return true;
   } catch (error: any) {
-    console.error('[Database] 初始化异常:', error.message);
+    console.error('[DB Init] 初始化失败:', error.message);
+    // 即使失败也继续启动，可能表已存在
+    return true;
   } finally {
     await pool.end();
   }
 }
 
-function parsePort(): number {
-  const args = process.argv.slice(2);
-  const portIndex = args.indexOf('-p');
-  if (portIndex !== -1 && args[portIndex + 1]) {
-    const port = parseInt(args[portIndex + 1], 10);
-    if (!isNaN(port) && port > 0 && port < 65536) {
-      return port;
-    }
-  }
-  return 3000;
-}
-
-async function bootstrap() {
-  // 初始化数据库表
-  await initDatabase();
-  
-  const app = await NestFactory.create(AppModule);
-
-  app.enableCors({
-    origin: true,
-    credentials: true,
+// 执行初始化
+initDatabase()
+  .then(() => {
+    console.log('[DB Init] 数据库初始化完成');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('[DB Init] 数据库初始化异常:', error);
+    process.exit(0); // 即使失败也返回 0，不影响启动
   });
-  app.setGlobalPrefix('api');
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-  // 全局拦截器：统一将 POST 请求的 201 状态码改为 200
-  app.useGlobalInterceptors(new HttpStatusInterceptor());
-  // 1. 开启优雅关闭 Hooks (关键!)
-  app.enableShutdownHooks();
-
-  // 2. 解析端口
-  const port = parsePort();
-  try {
-    await app.listen(port);
-    console.log(`Server running on http://localhost:${port}`);
-  } catch (err: any) {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`❌ 端口 ${port} 被占用! 请运行 'npx kill-port ${port}' 然后重试。`);
-      process.exit(1);
-    } else {
-      throw err;
-    }
-  }
-  console.log(`Application is running on: http://localhost:3000`);
-}
-bootstrap();

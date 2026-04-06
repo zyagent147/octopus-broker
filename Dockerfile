@@ -7,7 +7,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # 安装系统依赖和 pnpm
-RUN apk add --no-cache python3 py3-pip curl bash && \
+RUN apk add --no-cache python3 py3-pip curl bash postgresql-client && \
     pip3 install --no-cache-dir --break-system-packages coze-workload-identity || true && \
     corepack enable && corepack prepare pnpm@9.0.0 --activate
 
@@ -46,5 +46,11 @@ RUN pnpm prune --prod
 # 暴露端口
 EXPOSE 3000
 
+# 创建启动脚本
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'echo "=== 启动服务 ===" ' >> /app/start.sh && \
+    echo 'cd /app/server && node dist/main.js' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
 # 启动服务
-CMD ["node", "dist/main.js"]
+CMD ["/app/start.sh"]
