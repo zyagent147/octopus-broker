@@ -26,8 +26,8 @@ COPY server/package.json ./server/
 # 复制 patches 目录（必需）
 COPY patches/ ./patches/
 
-# 安装所有依赖（生产环境使用 frozen-lockfile）
-RUN pnpm install --frozen-lockfile || pnpm install
+# 安装所有依赖
+RUN pnpm install
 
 # 复制源代码和配置
 COPY server/ ./server/
