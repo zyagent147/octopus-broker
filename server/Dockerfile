@@ -1,16 +1,13 @@
 # 微信云托管部署配置 - 章鱼经纪人
-# 适用于构建上下文为项目根目录的情况
-# 在云托管控制台配置：
-#   Dockerfile路径: server/Dockerfile
-#   构建上下文: . (项目根目录)
+# 简化为单层结构，兼容 server/Dockerfile 路径
 
 FROM node:20-alpine
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装系统依赖和 pnpm
-RUN apk add --no-cache python3 py3-pip curl bash && \
+# 安装系统依赖
+RUN apk add --no-cache python3 py3-pip curl bash postgresql-client && \
     pip3 install --no-cache-dir --break-system-packages coze-workload-identity || true && \
     corepack enable && corepack prepare pnpm@latest --activate
 
@@ -18,27 +15,23 @@ RUN apk add --no-cache python3 py3-pip curl bash && \
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# ===== 从项目根目录复制文件 =====
-# 复制 package 文件（根目录和 server 目录）
+# 复制 package 文件
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY server/package.json ./server/
 
-# 安装所有依赖
-RUN pnpm install --frozen-lockfile
+# 安装依赖
+RUN pnpm install
 
-# 复制源代码和配置
+# 复制源代码
 COPY server/ ./server/
 COPY tsconfig.json ./
+COPY patches/ ./patches/ 2>/dev/null || true
 
 # 构建项目
 WORKDIR /app/server
 RUN pnpm build
 
-# 删除开发依赖，只保留生产依赖
-RUN pnpm prune --prod
-
 # 暴露端口
 EXPOSE 3000
 
 # 启动服务
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "cd /app/server && node dist/main.js"]
