@@ -1,24 +1,20 @@
-# 微信云托管部署 - 简化版
+# 微信云托管部署
 FROM node:20-slim
 
 WORKDIR /app
 
-# 设置镜像源
 RUN npm config set registry https://registry.npmmirror.com
 
-# 复制 package 文件
-COPY package.json pnpm-lock.yaml ./
+# 注意：需要同时上传根目录的 pnpm-lock.yaml
+COPY pnpm-lock.yaml ./
+COPY package.json ./
 
-# 安装依赖
-RUN npm install -g pnpm@9 && \
-    pnpm install --ignore-scripts
+RUN npm install -g pnpm@9 && pnpm install --ignore-scripts
 
-# 复制源代码
 COPY tsconfig.json ./
 COPY src/ ./src/
 COPY nest-cli.json ./
 
-# 构建
 RUN pnpm build
 
 ENV NODE_ENV=production
