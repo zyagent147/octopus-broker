@@ -4,15 +4,11 @@
 .env
 .env.*
 .coze
-.cozeproj
 assets
 config
-dist
-dist-*
 docs
 node_modules
 src
-scripts
 types
 *.log
 .DS_Store
@@ -21,4 +17,3 @@ types
 *.jpg
 *.jpeg
 *.gif
-.cozeproj
