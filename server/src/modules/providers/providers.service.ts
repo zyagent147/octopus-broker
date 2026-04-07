@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common'
-import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { query, execute } from '@/storage/database/mysql-client'
+import { RowDataPacket } from 'mysql2/promise'
 
 interface CreateProviderDto {
   service_type: string
@@ -17,164 +18,192 @@ interface CreateProviderDto {
 
 interface UpdateProviderDto extends Partial<CreateProviderDto> {}
 
+export interface ProviderRow extends RowDataPacket {
+  id: string
+  service_type: string
+  name: string
+  contact_person: string
+  phone: string
+  wechat: string
+  address: string
+  description: string
+  price_range: string
+  rating: number
+  is_active: boolean
+  sort_order: number
+  created_at: Date
+  updated_at: Date
+}
+
 @Injectable()
 export class ProvidersService {
   private readonly logger = new Logger(ProvidersService.name)
 
   /**
+   * 生成 UUID
+   */
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 0x3) | 0x8
+      return v.toString(16)
+    })
+  }
+
+  /**
    * 获取服务商列表（公开接口，所有用户可访问）
    */
   async getProviders(serviceType?: string) {
-    const client = getSupabaseClient()
-
-    let query = client
-      .from('providers')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('rating', { ascending: false })
-
+    let sql = 'SELECT * FROM providers WHERE is_active = true'
+    const params: any[] = []
+    
     if (serviceType) {
-      query = query.eq('service_type', serviceType)
+      sql += ' AND service_type = ?'
+      params.push(serviceType)
     }
-
-    const { data, error } = await query
-
-    if (error) {
-      this.logger.error(`查询服务商列表失败: ${error.message}`)
-      throw new Error('查询服务商列表失败')
-    }
-
-    return data
+    
+    sql += ' ORDER BY sort_order ASC, rating DESC'
+    
+    const providers = await query<ProviderRow[]>(sql, params)
+    return providers
   }
 
   /**
    * 获取服务商详情（公开接口）
    */
   async getProviderById(providerId: string) {
-    const client = getSupabaseClient()
+    const providers = await query<ProviderRow[]>(
+      'SELECT * FROM providers WHERE id = ? LIMIT 1',
+      [providerId]
+    )
 
-    const { data, error } = await client
-      .from('providers')
-      .select('*')
-      .eq('id', providerId)
-      .maybeSingle()
-
-    if (error) {
-      this.logger.error(`查询服务商详情失败: ${error.message}`)
-      throw new Error('查询服务商详情失败')
-    }
-
-    if (!data) {
+    if (providers.length === 0) {
       throw new NotFoundException('服务商不存在')
     }
 
-    return data
+    return providers[0]
   }
 
   /**
    * 创建服务商（仅管理员）
    */
   async createProvider(userId: string, userRole: string, dto: CreateProviderDto) {
-    // 验证管理员权限
     if (userRole !== 'admin') {
       throw new ForbiddenException('仅管理员可以添加服务商')
     }
 
-    const client = getSupabaseClient()
+    const providerId = this.generateUUID()
+    
+    await execute(
+      `INSERT INTO providers 
+       (id, service_type, name, contact_person, phone, wechat, address, description, price_range, rating, is_active, sort_order, created_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        providerId,
+        dto.service_type,
+        dto.name,
+        dto.contact_person || null,
+        dto.phone,
+        dto.wechat || null,
+        dto.address || null,
+        dto.description || null,
+        dto.price_range || null,
+        dto.rating || 5,
+        dto.is_active !== undefined ? dto.is_active : true,
+        dto.sort_order || 0,
+      ]
+    )
 
-    const { data, error } = await client
-      .from('providers')
-      .insert({
-        service_type: dto.service_type,
-        name: dto.name,
-        contact_person: dto.contact_person || null,
-        phone: dto.phone,
-        wechat: dto.wechat || null,
-        address: dto.address || null,
-        description: dto.description || null,
-        price_range: dto.price_range || null,
-        rating: dto.rating || 5,
-        is_active: dto.is_active !== undefined ? dto.is_active : true,
-        sort_order: dto.sort_order || 0,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      this.logger.error(`创建服务商失败: ${error.message}`)
-      throw new Error('创建服务商失败')
-    }
-
-    return data
+    return this.getProviderById(providerId)
   }
 
   /**
    * 更新服务商（仅管理员）
    */
   async updateProvider(providerId: string, userId: string, userRole: string, dto: UpdateProviderDto) {
-    // 验证管理员权限
     if (userRole !== 'admin') {
       throw new ForbiddenException('仅管理员可以编辑服务商')
     }
 
-    const client = getSupabaseClient()
+    // 先检查服务商是否存在
+    await this.getProviderById(providerId)
 
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
+    const updates: string[] = []
+    const values: any[] = []
+    
+    if (dto.service_type !== undefined) {
+      updates.push('service_type = ?')
+      values.push(dto.service_type)
+    }
+    if (dto.name !== undefined) {
+      updates.push('name = ?')
+      values.push(dto.name)
+    }
+    if (dto.contact_person !== undefined) {
+      updates.push('contact_person = ?')
+      values.push(dto.contact_person || null)
+    }
+    if (dto.phone !== undefined) {
+      updates.push('phone = ?')
+      values.push(dto.phone)
+    }
+    if (dto.wechat !== undefined) {
+      updates.push('wechat = ?')
+      values.push(dto.wechat || null)
+    }
+    if (dto.address !== undefined) {
+      updates.push('address = ?')
+      values.push(dto.address || null)
+    }
+    if (dto.description !== undefined) {
+      updates.push('description = ?')
+      values.push(dto.description || null)
+    }
+    if (dto.price_range !== undefined) {
+      updates.push('price_range = ?')
+      values.push(dto.price_range || null)
+    }
+    if (dto.rating !== undefined) {
+      updates.push('rating = ?')
+      values.push(dto.rating)
+    }
+    if (dto.is_active !== undefined) {
+      updates.push('is_active = ?')
+      values.push(dto.is_active)
+    }
+    if (dto.sort_order !== undefined) {
+      updates.push('sort_order = ?')
+      values.push(dto.sort_order)
+    }
+    
+    if (updates.length > 0) {
+      updates.push('updated_at = NOW()')
+      values.push(providerId)
+      
+      await execute(
+        `UPDATE providers SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      )
     }
 
-    if (dto.service_type !== undefined) updateData.service_type = dto.service_type
-    if (dto.name !== undefined) updateData.name = dto.name
-    if (dto.contact_person !== undefined) updateData.contact_person = dto.contact_person || null
-    if (dto.phone !== undefined) updateData.phone = dto.phone
-    if (dto.wechat !== undefined) updateData.wechat = dto.wechat || null
-    if (dto.address !== undefined) updateData.address = dto.address || null
-    if (dto.description !== undefined) updateData.description = dto.description || null
-    if (dto.price_range !== undefined) updateData.price_range = dto.price_range || null
-    if (dto.rating !== undefined) updateData.rating = dto.rating
-    if (dto.is_active !== undefined) updateData.is_active = dto.is_active
-    if (dto.sort_order !== undefined) updateData.sort_order = dto.sort_order
-
-    const { data, error } = await client
-      .from('providers')
-      .update(updateData)
-      .eq('id', providerId)
-      .select()
-      .single()
-
-    if (error) {
-      this.logger.error(`更新服务商失败: ${error.message}`)
-      throw new Error('更新服务商失败')
-    }
-
-    if (!data) {
-      throw new NotFoundException('服务商不存在')
-    }
-
-    return data
+    return this.getProviderById(providerId)
   }
 
   /**
    * 删除服务商（仅管理员）
    */
   async deleteProvider(providerId: string, userId: string, userRole: string) {
-    // 验证管理员权限
     if (userRole !== 'admin') {
       throw new ForbiddenException('仅管理员可以删除服务商')
     }
 
-    const client = getSupabaseClient()
-
-    const { error } = await client
-      .from('providers')
-      .delete()
-      .eq('id', providerId)
-
-    if (error) {
-      this.logger.error(`删除服务商失败: ${error.message}`)
-      throw new Error('删除服务商失败')
-    }
+    // 先检查服务商是否存在
+    await this.getProviderById(providerId)
+    
+    await execute(
+      'DELETE FROM providers WHERE id = ?',
+      [providerId]
+    )
 
     return { success: true }
   }
@@ -183,24 +212,14 @@ export class ProvidersService {
    * 获取所有服务商（管理后台，包含已禁用的）
    */
   async getAllProvidersForAdmin(userId: string, userRole: string) {
-    // 验证管理员权限
     if (userRole !== 'admin') {
       throw new ForbiddenException('仅管理员可以访问')
     }
 
-    const client = getSupabaseClient()
-
-    const { data, error } = await client
-      .from('providers')
-      .select('*')
-      .order('service_type', { ascending: true })
-      .order('sort_order', { ascending: true })
-
-    if (error) {
-      this.logger.error(`查询服务商列表失败: ${error.message}`)
-      throw new Error('查询服务商列表失败')
-    }
-
-    return data
+    const providers = await query<ProviderRow[]>(
+      'SELECT * FROM providers ORDER BY service_type ASC, sort_order ASC',
+      []
+    )
+    return providers
   }
 }

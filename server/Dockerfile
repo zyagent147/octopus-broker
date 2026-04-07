@@ -43,7 +43,7 @@ ENV PORT=80
 
 EXPOSE 80
 
-# 健康检查 - 注意 NestJS 使用 /api 前缀
+# 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:80/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 

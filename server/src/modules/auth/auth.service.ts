@@ -1,7 +1,8 @@
 import { Injectable, UnauthorizedException, Logger, InternalServerErrorException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
-import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { query, execute } from '@/storage/database/mysql-client'
+import { RowDataPacket } from 'mysql2/promise'
 
 interface WechatSessionResponse {
   openid?: string
@@ -14,6 +15,17 @@ interface UserPayload {
   id: string
   openid: string
   role: string
+}
+
+export interface UserRow extends RowDataPacket {
+  id: string
+  openid: string
+  nickname: string
+  avatar: string
+  phone: string
+  role: string
+  created_at: Date
+  updated_at: Date
 }
 
 @Injectable()
@@ -29,27 +41,24 @@ export class AuthService {
     this.logger.log('=== 开始微信登录流程 ===')
     this.logger.log(`收到登录code: ${code}`)
 
-    // 调用微信接口获取 openid 和 session_key
     const wxAppId = process.env.WX_APP_ID
     const wxAppSecret = process.env.WX_APP_SECRET
 
     this.logger.log(`WX_APP_ID: ${wxAppId || '未配置'}`)
     this.logger.log(`WX_APP_SECRET: ${wxAppSecret ? `${wxAppSecret.substring(0, 8)}***` : '未配置'}`)
 
-    // 如果没有配置微信AppID和Secret，返回错误
     if (!wxAppId || !wxAppSecret) {
       this.logger.error('微信小程序配置缺失！请配置 WX_APP_ID 和 WX_APP_SECRET')
       throw new UnauthorizedException('服务器配置错误：缺少微信小程序配置')
     }
 
-    // 构建微信API请求URL
     const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${wxAppId}&secret=${wxAppSecret}&js_code=${code}&grant_type=authorization_code`
     
     this.logger.log('调用微信API: jscode2session')
 
     try {
       const response = await axios.get<WechatSessionResponse>(url, {
-        timeout: 10000, // 10秒超时
+        timeout: 10000,
       })
       
       this.logger.log('微信API响应成功')
@@ -57,11 +66,9 @@ export class AuthService {
 
       const { openid, errcode, errmsg } = response.data
 
-      // 检查微信API返回的错误码
       if (errcode) {
         this.logger.error(`微信登录失败: errcode=${errcode}, errmsg=${errmsg}`)
         
-        // 根据错误码返回具体错误信息
         let errorMsg = `微信登录失败: ${errmsg}`
         if (errcode === 40029) errorMsg = 'code无效，请重新登录'
         else if (errcode === 40013) errorMsg = 'AppID无效，请检查配置'
@@ -79,10 +86,8 @@ export class AuthService {
 
       this.logger.log(`获取到openid: ${openid}`)
 
-      // 使用数据库创建或获取用户
       const user = await this.createOrGetUser(openid)
 
-      // 生成 JWT token
       const payload: UserPayload = {
         id: user.id,
         openid: user.openid,
@@ -105,7 +110,7 @@ export class AuthService {
           role: user.role,
         },
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('微信登录异常')
       this.logger.error(`错误信息: ${error.message}`)
       
@@ -123,11 +128,9 @@ export class AuthService {
   async devLogin() {
     this.logger.log('=== 开发模式登录 ===')
     
-    // 使用固定的测试 openid
     const devOpenid = 'dev-test-user-001'
     const user = await this.createOrGetUser(devOpenid, '测试管理员', 'admin')
 
-    // 生成 JWT token（管理员角色）
     const payload: UserPayload = {
       id: user.id,
       openid: user.openid,
@@ -152,98 +155,106 @@ export class AuthService {
   }
 
   /**
-   * 创建或获取用户（使用 Supabase 数据库）
-   * 使用 service_role 绕过 RLS，确保可以创建新用户
+   * 创建或获取用户（使用 MySQL 数据库）
    */
-  private async createOrGetUser(openid: string, nickname?: string, role?: string) {
-    // 使用 service_role 绕过 RLS，确保可以创建用户
-    const client = getSupabaseClient(undefined, true)
-    
+  private async createOrGetUser(openid: string, nickname?: string, role?: string): Promise<UserRow> {
     // 1. 查询用户是否已存在
-    const { data: existingUser, error: queryError } = await client
-      .from('users')
-      .select('*')
-      .eq('openid', openid)
-      .maybeSingle()
+    const existingUsers = await query<UserRow[]>(
+      'SELECT * FROM users WHERE openid = ? LIMIT 1',
+      [openid]
+    )
     
-    if (queryError) {
-      this.logger.error(`查询用户失败: ${queryError.message}`)
-      throw new InternalServerErrorException('查询用户失败')
+    if (existingUsers.length > 0) {
+      this.logger.log(`用户已存在: ${JSON.stringify(existingUsers[0])}`)
+      return existingUsers[0]
     }
     
-    // 2. 如果用户已存在，直接返回
-    if (existingUser) {
-      this.logger.log(`用户已存在: ${JSON.stringify(existingUser)}`)
-      return existingUser
-    }
-    
-    // 3. 创建新用户
+    // 2. 创建新用户
     this.logger.log('创建新用户...')
-    const { data: newUser, error: insertError } = await client
-      .from('users')
-      .insert({
-        openid,
-        nickname: nickname || `用户${Date.now()}`,
-        role: role || 'broker',
-      })
-      .select()
-      .single()
+    const userId = this.generateUUID()
+    const userNickname = nickname || `用户${Date.now()}`
+    const userRole = role || 'broker'
     
-    if (insertError) {
-      this.logger.error(`创建用户失败: ${insertError.message}`)
+    await execute(
+      'INSERT INTO users (id, openid, nickname, role, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [userId, openid, userNickname, userRole]
+    )
+    
+    const newUsers = await query<UserRow[]>(
+      'SELECT * FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    )
+    
+    if (newUsers.length === 0) {
+      this.logger.error('创建用户失败: 查询不到新用户')
       throw new InternalServerErrorException('创建用户失败')
     }
     
-    this.logger.log(`创建新用户成功: ${JSON.stringify(newUser)}`)
-    return newUser
+    this.logger.log(`创建新用户成功: ${JSON.stringify(newUsers[0])}`)
+    return newUsers[0]
+  }
+
+  /**
+   * 生成 UUID
+   */
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 0x3) | 0x8
+      return v.toString(16)
+    })
   }
 
   /**
    * 更新用户信息
    */
   async updateUserInfo(userId: string, data: { nickname?: string; avatar?: string; phone?: string }) {
-    const client = getSupabaseClient()
+    const updates: string[] = []
+    const values: any[] = []
     
-    const { data: updatedUser, error } = await client
-      .from('users')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-      .select()
-      .maybeSingle()
-    
-    if (error) {
-      this.logger.error(`更新用户信息失败: ${error.message}`)
-      throw new InternalServerErrorException('更新用户信息失败')
+    if (data.nickname !== undefined) {
+      updates.push('nickname = ?')
+      values.push(data.nickname)
+    }
+    if (data.avatar !== undefined) {
+      updates.push('avatar = ?')
+      values.push(data.avatar)
+    }
+    if (data.phone !== undefined) {
+      updates.push('phone = ?')
+      values.push(data.phone)
     }
     
-    if (!updatedUser) {
+    if (updates.length === 0) {
+      return this.getUserById(userId)
+    }
+    
+    updates.push('updated_at = NOW()')
+    values.push(userId)
+    
+    await execute(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    )
+    
+    const user = await this.getUserById(userId)
+    if (!user) {
       throw new UnauthorizedException('用户不存在')
     }
     
-    return updatedUser
+    return user
   }
 
   /**
    * 获取用户信息
    */
   async getUserById(userId: string) {
-    const client = getSupabaseClient()
+    const users = await query<UserRow[]>(
+      'SELECT * FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    )
     
-    const { data: user, error } = await client
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle()
-    
-    if (error) {
-      this.logger.error(`查询用户失败: ${error.message}`)
-      return null
-    }
-    
-    return user
+    return users.length > 0 ? users[0] : null
   }
 
   /**

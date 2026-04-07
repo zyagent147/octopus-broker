@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
-import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { query, execute } from '@/storage/database/mysql-client'
+import { RowDataPacket } from 'mysql2/promise'
 
 interface CreateServiceDto {
   service_type?: 'move' | 'clean' | 'repair' | 'other'
@@ -15,142 +16,163 @@ interface CreateServiceDto {
 
 interface UpdateServiceDto extends Partial<CreateServiceDto> {}
 
+export interface ServiceRow extends RowDataPacket {
+  id: string
+  user_id: string
+  service_type: string
+  title: string
+  provider_id: string
+  provider_name: string
+  provider_phone: string
+  price: number
+  status: string
+  scheduled_date: Date
+  address: string
+  notes: string
+  created_at: Date
+  updated_at: Date
+}
+
 @Injectable()
 export class ServicesService {
   private readonly logger = new Logger(ServicesService.name)
 
   /**
+   * 生成 UUID
+   */
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 0x3) | 0x8
+      return v.toString(16)
+    })
+  }
+
+  /**
    * 获取服务列表
    */
   async getServices(userId: string) {
-    const client = getSupabaseClient()
-
-    const { data, error } = await client
-      .from('services')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      this.logger.error(`查询服务列表失败: ${error.message}`)
-      throw new Error('查询服务列表失败')
-    }
-
-    return data
+    const services = await query<ServiceRow[]>(
+      'SELECT * FROM services WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    )
+    return services
   }
 
   /**
    * 获取服务详情
    */
   async getServiceById(serviceId: string, userId: string) {
-    const client = getSupabaseClient()
+    const services = await query<ServiceRow[]>(
+      'SELECT * FROM services WHERE id = ? AND user_id = ? LIMIT 1',
+      [serviceId, userId]
+    )
 
-    const { data, error } = await client
-      .from('services')
-      .select('*')
-      .eq('id', serviceId)
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (error) {
-      this.logger.error(`查询服务详情失败: ${error.message}`)
-      throw new Error('查询服务详情失败')
-    }
-
-    if (!data) {
+    if (services.length === 0) {
       throw new NotFoundException('服务不存在')
     }
 
-    return data
+    return services[0]
   }
 
   /**
    * 创建服务
    */
   async createService(userId: string, dto: CreateServiceDto) {
-    const client = getSupabaseClient()
+    const serviceId = this.generateUUID()
+    
+    await execute(
+      `INSERT INTO services 
+       (id, user_id, service_type, title, provider_name, provider_phone, price, status, scheduled_date, address, notes, created_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        serviceId,
+        userId,
+        dto.service_type || 'other',
+        dto.title,
+        dto.provider_name,
+        dto.provider_phone,
+        dto.price || null,
+        dto.status || 'pending',
+        dto.scheduled_date || null,
+        dto.address || null,
+        dto.notes || null,
+      ]
+    )
 
-    const { data, error } = await client
-      .from('services')
-      .insert({
-        user_id: userId,
-        service_type: dto.service_type || 'other',
-        title: dto.title,
-        provider_name: dto.provider_name,
-        provider_phone: dto.provider_phone,
-        price: dto.price || null,
-        status: dto.status || 'pending',
-        scheduled_date: dto.scheduled_date || null,
-        address: dto.address || null,
-        notes: dto.notes || null,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      this.logger.error(`创建服务失败: ${error.message}`)
-      throw new Error('创建服务失败')
-    }
-
-    return data
+    return this.getServiceById(serviceId, userId)
   }
 
   /**
    * 更新服务
    */
   async updateService(serviceId: string, userId: string, dto: UpdateServiceDto) {
-    const client = getSupabaseClient()
+    // 先检查服务是否存在
+    await this.getServiceById(serviceId, userId)
 
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
+    const updates: string[] = []
+    const values: any[] = []
+    
+    if (dto.service_type !== undefined) {
+      updates.push('service_type = ?')
+      values.push(dto.service_type)
+    }
+    if (dto.title !== undefined) {
+      updates.push('title = ?')
+      values.push(dto.title)
+    }
+    if (dto.provider_name !== undefined) {
+      updates.push('provider_name = ?')
+      values.push(dto.provider_name)
+    }
+    if (dto.provider_phone !== undefined) {
+      updates.push('provider_phone = ?')
+      values.push(dto.provider_phone)
+    }
+    if (dto.price !== undefined) {
+      updates.push('price = ?')
+      values.push(dto.price || null)
+    }
+    if (dto.status !== undefined) {
+      updates.push('status = ?')
+      values.push(dto.status)
+    }
+    if (dto.scheduled_date !== undefined) {
+      updates.push('scheduled_date = ?')
+      values.push(dto.scheduled_date || null)
+    }
+    if (dto.address !== undefined) {
+      updates.push('address = ?')
+      values.push(dto.address || null)
+    }
+    if (dto.notes !== undefined) {
+      updates.push('notes = ?')
+      values.push(dto.notes || null)
+    }
+    
+    if (updates.length > 0) {
+      updates.push('updated_at = NOW()')
+      values.push(serviceId, userId)
+      
+      await execute(
+        `UPDATE services SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`,
+        values
+      )
     }
 
-    if (dto.service_type !== undefined) updateData.service_type = dto.service_type
-    if (dto.title !== undefined) updateData.title = dto.title
-    if (dto.provider_name !== undefined) updateData.provider_name = dto.provider_name
-    if (dto.provider_phone !== undefined) updateData.provider_phone = dto.provider_phone
-    if (dto.price !== undefined) updateData.price = dto.price || null
-    if (dto.status !== undefined) updateData.status = dto.status
-    if (dto.scheduled_date !== undefined) updateData.scheduled_date = dto.scheduled_date || null
-    if (dto.address !== undefined) updateData.address = dto.address || null
-    if (dto.notes !== undefined) updateData.notes = dto.notes || null
-
-    const { data, error } = await client
-      .from('services')
-      .update(updateData)
-      .eq('id', serviceId)
-      .eq('user_id', userId)
-      .select()
-      .single()
-
-    if (error) {
-      this.logger.error(`更新服务失败: ${error.message}`)
-      throw new Error('更新服务失败')
-    }
-
-    if (!data) {
-      throw new NotFoundException('服务不存在')
-    }
-
-    return data
+    return this.getServiceById(serviceId, userId)
   }
 
   /**
    * 删除服务
    */
   async deleteService(serviceId: string, userId: string) {
-    const client = getSupabaseClient()
-
-    const { error } = await client
-      .from('services')
-      .delete()
-      .eq('id', serviceId)
-      .eq('user_id', userId)
-
-    if (error) {
-      this.logger.error(`删除服务失败: ${error.message}`)
-      throw new Error('删除服务失败')
-    }
+    await this.getServiceById(serviceId, userId)
+    
+    await execute(
+      'DELETE FROM services WHERE id = ? AND user_id = ?',
+      [serviceId, userId]
+    )
 
     return { success: true }
   }
