@@ -17,3 +17,5 @@ types
 *.jpg
 *.jpeg
 *.gif
+.cozeproj
+patches
