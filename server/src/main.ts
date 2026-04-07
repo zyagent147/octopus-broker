@@ -6,8 +6,9 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 // 手动加载 .env 文件（必须在 AppModule 初始化之前）
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+// 注意：后面的配置会覆盖前面的，所以 .env.production 放前面，.env 放后面以覆盖开发配置
 dotenv.config({ path: path.join(__dirname, '..', '.env.production') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 function parsePort(): number {
   // 优先使用环境变量 PORT

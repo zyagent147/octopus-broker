@@ -1,4 +1,5 @@
-import mysql, { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import * as mysql from 'mysql2/promise';
+import { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { execSync } from 'child_process';
 
 let envLoaded = false;
