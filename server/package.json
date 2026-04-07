@@ -2,6 +2,7 @@
   "name": "server",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@8.15.0",
   "description": "NestJS server application",
   "scripts": {
     "build": "nest build",

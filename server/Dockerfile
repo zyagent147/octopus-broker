@@ -3,20 +3,22 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# 设置镜像源
-RUN npm config set registry https://registry.npmmirror.com
+# 复制 .npmrc 和 package.json
+COPY .npmrc package.json ./
 
-# 安装所有依赖（包括 devDependencies，因为需要 @nestjs/cli 构建）
-COPY package.json ./
-RUN npm install
+# 安装指定版本的 pnpm
+RUN npm install -g pnpm@8.15.0
+
+# 安装依赖（使用国内镜像，跳过 frozen-lockfile）
+RUN pnpm install --no-frozen-lockfile
 
 COPY pnpm-lock.yaml ./
 COPY tsconfig.json ./
-COPY src/ ./src/
 COPY nest-cli.json ./
+COPY src/ ./src/
 
 # 构建
-RUN npm run build
+RUN pnpm build
 
 ENV NODE_ENV=production
 ENV PORT=80
