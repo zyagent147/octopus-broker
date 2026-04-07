@@ -19,6 +19,7 @@ RUN pnpm install --no-frozen-lockfile
 COPY server/tsconfig.json ./
 COPY server/nest-cli.json ./
 COPY server/src/ ./src/
+COPY server/.env.production ./.env
 
 # 构建
 RUN pnpm build

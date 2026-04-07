@@ -7,8 +7,19 @@ import * as path from 'path';
 
 // 手动加载 .env 文件（必须在 AppModule 初始化之前）
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env.production') });
 
 function parsePort(): number {
+  // 优先使用环境变量 PORT
+  const envPort = process.env.PORT;
+  if (envPort) {
+    const port = parseInt(envPort, 10);
+    if (!isNaN(port) && port > 0 && port < 65536) {
+      return port;
+    }
+  }
+  
+  // 其次检查命令行参数 -p
   const args = process.argv.slice(2);
   const portIndex = args.indexOf('-p');
   if (portIndex !== -1 && args[portIndex + 1]) {
@@ -17,6 +28,8 @@ function parsePort(): number {
       return port;
     }
   }
+  
+  // 默认端口 3000
   return 3000;
 }
 
