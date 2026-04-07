@@ -11,6 +11,7 @@ import prodConfig from './prod';
 import pkg from '../package.json';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+dotenv.config({ path: path.resolve(__dirname, '../.env.production') });
 
 const generateTTProjectConfig = (outputRoot: string) => {
   const config = {
