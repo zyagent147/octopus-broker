@@ -1,20 +1,20 @@
-# 微信云托管部署
+# 微信云托管部署 - server 目录
 FROM node:20-slim
 
 WORKDIR /app
 
-# 复制 .npmrc 和 package.json
-COPY .npmrc package.json ./
+# 设置 npm 镜像源
+RUN npm config set registry https://registry.npmmirror.com
 
-# 安装指定版本的 pnpm
+# 复制依赖文件（从 server/ 目录复制到 /app/）
+COPY .npmrc package.json pnpm-lock.yaml ./
+
+# 安装依赖
 RUN npm install -g pnpm@8.15.0
-
-# 安装依赖（使用国内镜像，跳过 frozen-lockfile）
 RUN pnpm install --no-frozen-lockfile
 
-COPY pnpm-lock.yaml ./
-COPY tsconfig.json ./
-COPY nest-cli.json ./
+# 复制构建所需文件
+COPY tsconfig.json nest-cli.json ./
 COPY src/ ./src/
 
 # 构建
