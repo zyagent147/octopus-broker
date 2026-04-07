@@ -1,10 +1,10 @@
 .git
 .gitignore
-README.md
 *.md
-.env*
-.coze*
-.cozeproj*
+.env
+.env.*
+.coze
+.cozeproj
 assets
 config
 dist
@@ -16,3 +16,9 @@ scripts
 types
 *.log
 .DS_Store
+.swc
+*.png
+*.jpg
+*.jpeg
+*.gif
+.cozeproj
