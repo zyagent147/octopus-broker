@@ -3,18 +3,23 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# 设置 npm 镜像源
 RUN npm config set registry https://registry.npmmirror.com
 
-# 注意：需要同时上传根目录的 pnpm-lock.yaml
-COPY pnpm-lock.yaml ./
-COPY package.json ./
+# 安装 pnpm（设置超时）
+RUN npm install -g pnpm@9 --prefer-offline
 
-RUN npm install -g pnpm@9 && pnpm install --ignore-scripts
+COPY package.json pnpm-lock.yaml ./
+
+# 安装依赖（忽略脚本，避免 native 模块编译失败）
+RUN pnpm install --ignore-scripts --no-frozen-lockfile || \
+    pnpm install --ignore-scripts
 
 COPY tsconfig.json ./
 COPY src/ ./src/
 COPY nest-cli.json ./
 
+# 构建项目
 RUN pnpm build
 
 ENV NODE_ENV=production
