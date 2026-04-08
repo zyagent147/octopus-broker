@@ -13,6 +13,7 @@ import { RemindersModule } from './modules/reminders/reminders.module'
 import { FollowUpsModule } from './modules/follow-ups/follow-ups.module'
 import { UploadModule } from './modules/upload/upload.module'
 import { MigrateModule } from './modules/migrate/migrate.module'
+import { DebugModule } from './modules/debug/debug.module'
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MigrateModule } from './modules/migrate/migrate.module'
     FollowUpsModule,
     UploadModule,
     MigrateModule,
+    DebugModule,
   ],
   controllers: [AppController],
   providers: [AppService],
