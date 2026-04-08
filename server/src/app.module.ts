@@ -12,6 +12,7 @@ import { RentBillsModule } from './modules/rent-bills/rent-bills.module'
 import { RemindersModule } from './modules/reminders/reminders.module'
 import { FollowUpsModule } from './modules/follow-ups/follow-ups.module'
 import { UploadModule } from './modules/upload/upload.module'
+import { MigrateModule } from './modules/migrate/migrate.module'
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { UploadModule } from './modules/upload/upload.module'
     RemindersModule,
     FollowUpsModule,
     UploadModule,
+    MigrateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
