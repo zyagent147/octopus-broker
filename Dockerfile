@@ -13,13 +13,16 @@ COPY server/.npmrc ./
 
 # 安装 pnpm 和依赖
 RUN npm install -g pnpm@8.15.0
-RUN pnpm install
+RUN pnpm install --frozen-lockfile=false
 
 # 复制构建所需文件
 COPY server/tsconfig.json ./
 COPY server/nest-cli.json ./
 COPY server/src/ ./src/
 COPY server/.env.production ./.env
+
+# 打印文件列表用于调试
+RUN ls -la src/modules/ | head -20
 
 # 构建
 RUN pnpm build
