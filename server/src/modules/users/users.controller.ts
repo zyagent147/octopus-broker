@@ -1,23 +1,29 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common'
+import { Controller, Get, Put, Body, UseGuards, Request } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 
 @Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  /**
-   * 获取用户统计数据
-   */
   @Get('stats')
-  @UseGuards(JwtAuthGuard)
-  async getStats(@Request() req: { user: { id: string } }) {
+  async getStats(@Request() req) {
     const stats = await this.usersService.getUserStats(req.user.id)
-
     return {
       code: 200,
       msg: 'success',
       data: stats,
     }
+  }
+
+  @Get('settings')
+  async getSettings(@Request() req) {
+    return this.usersService.getSettings(req.user.id)
+  }
+
+  @Put('settings')
+  async updateSettings(@Request() req, @Body() data: any) {
+    return this.usersService.updateSettings(req.user.id, data)
   }
 }
