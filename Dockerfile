@@ -7,13 +7,13 @@ WORKDIR /app
 # 设置 npm 镜像源
 RUN npm config set registry https://registry.npmmirror.com
 
-# 复制 server 目录的文件
+# 复制 package.json 和 pnpm-lock.yaml
 COPY server/package.json server/pnpm-lock.yaml ./
 COPY server/.npmrc ./
 
-# 安装依赖
+# 安装 pnpm 和依赖
 RUN npm install -g pnpm@8.15.0
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install
 
 # 复制构建所需文件
 COPY server/tsconfig.json ./
