@@ -1,16 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
-import { MySQLClient } from '../../storage/database/mysql-client'
+import { query, execute } from '../../storage/database/mysql-client'
 
 @Injectable()
 export class FollowUpsService {
-  constructor(private readonly mysql: MySQLClient) {}
-
   async create(userId: string, data: any) {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
     // 验证客户是否属于当前用户
-    const customerCheck = await this.mysql.query(
+    const customerCheck = await query(
       'SELECT id FROM customers WHERE id = ? AND user_id = ?',
       [data.customer_id, userId]
     )
@@ -22,7 +20,7 @@ export class FollowUpsService {
       INSERT INTO follow_ups (id, user_id, customer_id, type, content, result, follow_up_date, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
-    await this.mysql.execute(sql, [
+    await execute(sql, [
       id,
       userId,
       data.customer_id,
@@ -42,13 +40,13 @@ export class FollowUpsService {
       WHERE user_id = ? AND customer_id = ?
       ORDER BY follow_up_date DESC, created_at DESC
     `
-    const followUps = await this.mysql.query(sql, [userId, customerId])
+    const followUps = await query(sql, [userId, customerId])
     return { code: 200, msg: 'success', data: followUps }
   }
 
   async delete(userId: string, id: string) {
     const checkSql = `SELECT * FROM follow_ups WHERE id = ?`
-    const [followUp] = await this.mysql.query(checkSql, [id])
+    const [followUp] = await query(checkSql, [id])
 
     if (!followUp) {
       throw new NotFoundException('跟进记录不存在')
@@ -59,7 +57,7 @@ export class FollowUpsService {
     }
 
     const sql = `DELETE FROM follow_ups WHERE id = ?`
-    await this.mysql.execute(sql, [id])
+    await execute(sql, [id])
 
     return { code: 200, msg: '删除成功', data: null }
   }

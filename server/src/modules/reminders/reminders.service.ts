@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
-import { MySQLClient } from '../../storage/database/mysql-client'
+import { query, execute } from '../../storage/database/mysql-client'
 
 @Injectable()
 export class RemindersService {
-  constructor(private readonly mysql: MySQLClient) {}
-
   async create(userId: string, data: any) {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
@@ -13,7 +11,7 @@ export class RemindersService {
       INSERT INTO reminders (id, user_id, customer_id, type, title, description, reminder_date, is_completed, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
-    await this.mysql.execute(sql, [
+    await execute(sql, [
       id,
       userId,
       data.customer_id || null,
@@ -36,13 +34,13 @@ export class RemindersService {
       WHERE r.user_id = ?
       ORDER BY r.reminder_date ASC, r.created_at DESC
     `
-    const reminders = await this.mysql.query(sql, [userId])
+    const reminders = await query(sql, [userId])
     return { code: 200, msg: 'success', data: reminders }
   }
 
   async markComplete(userId: string, id: string) {
     const checkSql = `SELECT * FROM reminders WHERE id = ?`
-    const [reminder] = await this.mysql.query(checkSql, [id])
+    const [reminder] = await query(checkSql, [id])
 
     if (!reminder) {
       throw new NotFoundException('提醒不存在')
@@ -53,14 +51,14 @@ export class RemindersService {
     }
 
     const sql = `UPDATE reminders SET is_completed = 1, completed_at = NOW() WHERE id = ?`
-    await this.mysql.execute(sql, [id])
+    await execute(sql, [id])
 
     return { code: 200, msg: '已标记为完成', data: null }
   }
 
   async delete(userId: string, id: string) {
     const checkSql = `SELECT * FROM reminders WHERE id = ?`
-    const [reminder] = await this.mysql.query(checkSql, [id])
+    const [reminder] = await query(checkSql, [id])
 
     if (!reminder) {
       throw new NotFoundException('提醒不存在')
@@ -71,7 +69,7 @@ export class RemindersService {
     }
 
     const sql = `DELETE FROM reminders WHERE id = ?`
-    await this.mysql.execute(sql, [id])
+    await execute(sql, [id])
 
     return { code: 200, msg: '删除成功', data: null }
   }
