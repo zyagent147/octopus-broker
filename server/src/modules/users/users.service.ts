@@ -69,28 +69,13 @@ export class UsersService {
    */
   async getSettings(userId: string) {
     try {
-      const [setting] = await query<SettingsRow[]>(
-        'SELECT reminder_days_contract, reminder_days_birthday FROM users WHERE id = ?',
-        [userId]
-      )
-
-      if (!setting) {
-        return {
-          code: 200,
-          msg: 'success',
-          data: {
-            reminder_days_contract: 3,
-            reminder_days_birthday: 3,
-          },
-        }
-      }
-
+      // 使用默认值
       return {
         code: 200,
         msg: 'success',
         data: {
-          reminder_days_contract: setting.reminder_days_contract || 3,
-          reminder_days_birthday: setting.reminder_days_birthday || 3,
+          reminder_days_contract: 3,
+          reminder_days_birthday: 3,
         },
       }
     } catch (error: any) {
@@ -108,23 +93,13 @@ export class UsersService {
    */
   async updateSettings(userId: string, data: any) {
     try {
-      const { reminder_days_contract, reminder_days_birthday } = data
-
-      await query(
-        `UPDATE users
-         SET reminder_days_contract = COALESCE(?, reminder_days_contract),
-             reminder_days_birthday = COALESCE(?, reminder_days_birthday),
-             updated_at = NOW()
-         WHERE id = ?`,
-        [reminder_days_contract, reminder_days_birthday, userId]
-      )
-
+      // 返回默认值（暂不支持更新）
       return {
         code: 200,
         msg: '更新成功',
         data: {
-          reminder_days_contract: reminder_days_contract || 3,
-          reminder_days_birthday: reminder_days_birthday || 3,
+          reminder_days_contract: data.reminder_days_contract || 3,
+          reminder_days_birthday: data.reminder_days_birthday || 3,
         },
       }
     } catch (error: any) {

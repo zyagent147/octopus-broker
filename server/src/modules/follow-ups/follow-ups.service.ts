@@ -16,17 +16,16 @@ export class FollowUpsService {
       throw new NotFoundException('客户不存在或无权访问')
     }
 
+    // 使用现有表结构
     const sql = `
-      INSERT INTO follow_ups (id, user_id, customer_id, type, content, result, follow_up_date, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO follow_ups (id, customer_id, user_id, content, follow_time, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `
     await execute(sql, [
       id,
-      userId,
       data.customer_id,
-      data.type,
+      userId,
       data.content,
-      data.result || null,
       now,
       now
     ])
@@ -38,7 +37,7 @@ export class FollowUpsService {
     const sql = `
       SELECT * FROM follow_ups
       WHERE user_id = ? AND customer_id = ?
-      ORDER BY follow_up_date DESC, created_at DESC
+      ORDER BY follow_time DESC, created_at DESC
     `
     const followUps = await query(sql, [userId, customerId])
     return { code: 200, msg: 'success', data: followUps }

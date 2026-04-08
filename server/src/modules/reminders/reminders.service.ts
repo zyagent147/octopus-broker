@@ -7,8 +7,9 @@ export class RemindersService {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
+    // 使用现有表结构
     const sql = `
-      INSERT INTO reminders (id, user_id, customer_id, type, title, description, reminder_date, is_completed, created_at)
+      INSERT INTO reminders (id, user_id, ref_id, type, title, content, remind_date, is_read, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     await execute(sql, [
@@ -30,9 +31,9 @@ export class RemindersService {
     const sql = `
       SELECT r.*, c.name as customer_name, c.phone as customer_phone
       FROM reminders r
-      LEFT JOIN customers c ON r.customer_id = c.id
+      LEFT JOIN customers c ON r.ref_id = c.id
       WHERE r.user_id = ?
-      ORDER BY r.reminder_date ASC, r.created_at DESC
+      ORDER BY r.remind_date ASC, r.created_at DESC
     `
     const reminders = await query(sql, [userId])
     return { code: 200, msg: 'success', data: reminders }
@@ -50,7 +51,7 @@ export class RemindersService {
       throw new ForbiddenException('无权操作')
     }
 
-    const sql = `UPDATE reminders SET is_completed = 1, completed_at = NOW() WHERE id = ?`
+    const sql = `UPDATE reminders SET is_read = 1 WHERE id = ?`
     await execute(sql, [id])
 
     return { code: 200, msg: '已标记为完成', data: null }
