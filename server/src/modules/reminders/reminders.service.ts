@@ -4,27 +4,29 @@ import { query, execute } from '../../storage/database/mysql-client'
 @Injectable()
 export class RemindersService {
   async create(userId: string, data: any) {
-    const id = crypto.randomUUID()
-    const now = new Date().toISOString()
+    try {
+      const id = crypto.randomUUID()
 
-    // 使用现有表结构
-    const sql = `
-      INSERT INTO reminders (id, user_id, ref_id, type, title, content, remind_date, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    await execute(sql, [
-      id,
-      userId,
-      data.customer_id || null,
-      data.type,
-      data.title,
-      data.description || null,
-      data.reminder_date,
-      0,
-      now
-    ])
+      // 使用现有表结构 - created_at 有默认值
+      const sql = `
+        INSERT INTO reminders (id, user_id, ref_id, type, title, content, remind_date, is_read)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      await execute(sql, [
+        id,
+        userId,
+        data.customer_id || null,
+        data.type || 'contract',
+        data.title,
+        data.description || null,
+        data.reminder_date,
+        0
+      ])
 
-    return { code: 200, msg: '创建成功', data: { id, ...data } }
+      return { code: 200, msg: '创建成功', data: { id, ...data } }
+    } catch (error: any) {
+      return { code: 500, msg: '创建失败: ' + error.message, data: null }
+    }
   }
 
   async findAll(userId: string) {

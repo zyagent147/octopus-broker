@@ -4,33 +4,25 @@ import { query, execute } from '../../storage/database/mysql-client'
 @Injectable()
 export class FollowUpsService {
   async create(userId: string, data: any) {
-    const id = crypto.randomUUID()
-    const now = new Date().toISOString()
+    try {
+      const id = crypto.randomUUID()
 
-    // 验证客户是否属于当前用户
-    const customerCheck = await query(
-      'SELECT id FROM customers WHERE id = ? AND user_id = ?',
-      [data.customer_id, userId]
-    )
-    if (!customerCheck || customerCheck.length === 0) {
-      throw new NotFoundException('客户不存在或无权访问')
+      // 使用现有表结构 - created_at 有默认值
+      const sql = `
+        INSERT INTO follow_ups (id, customer_id, user_id, content, follow_time)
+        VALUES (?, ?, ?, ?, NOW())
+      `
+      await execute(sql, [
+        id,
+        data.customer_id,
+        userId,
+        data.content
+      ])
+
+      return { code: 200, msg: '创建成功', data: { id, ...data } }
+    } catch (error: any) {
+      return { code: 500, msg: '创建失败: ' + error.message, data: null }
     }
-
-    // 使用现有表结构
-    const sql = `
-      INSERT INTO follow_ups (id, customer_id, user_id, content, follow_time, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `
-    await execute(sql, [
-      id,
-      data.customer_id,
-      userId,
-      data.content,
-      now,
-      now
-    ])
-
-    return { code: 200, msg: '创建成功', data: { id, ...data } }
   }
 
   async findByCustomer(userId: string, customerId: string) {
