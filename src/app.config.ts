@@ -1,5 +1,6 @@
 export default defineAppConfig({
   pages: [
+    'pages/home/index',
     'pages/login/index',
     'pages/agreement/user-agreement/index',
     'pages/agreement/privacy-policy/index',

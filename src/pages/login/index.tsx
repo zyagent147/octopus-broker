@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 import { useUserStore } from '@/stores/user'
 import PrivacyDialog from '@/components/PrivacyDialog'
+import { Card, CardContent } from '@/components/ui/card'
 
 // Logo 图片
 // @ts-ignore
@@ -16,26 +17,36 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false)
   const login = useUserStore((state) => state.login)
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn)
+
+  // 如果已登录，直接跳转
+  useEffect(() => {
+    if (isLoggedIn) {
+      Taro.switchTab({ url: '/pages/customers/index' })
+    }
+  }, [isLoggedIn])
 
   // 检查是否已同意隐私政策
   useEffect(() => {
     const checkPrivacyAgreed = async () => {
       try {
         const agreed = await Taro.getStorage({ key: PRIVACY_AGREED_KEY })
-        // 如果已经同意过，不显示弹窗
         if (agreed.data === true) {
           setShowPrivacyDialog(false)
         } else {
-          // 未同意过，显示弹窗
           setShowPrivacyDialog(true)
         }
       } catch (error) {
-        // 没有存储记录，显示弹窗
         setShowPrivacyDialog(true)
       }
     }
     checkPrivacyAgreed()
   }, [])
+
+  // 返回首页
+  const handleBackToHome = () => {
+    Taro.redirectTo({ url: '/pages/home/index' })
+  }
 
   // 同意隐私政策
   const handleAgreePrivacy = async () => {
@@ -136,7 +147,7 @@ export default function LoginPage() {
 
         // 6. 跳转到首页
         setTimeout(() => {
-          console.log('步骤4: 跳转到首页')
+          console.log('步骤4: 跳转到客户页面')
           Taro.switchTab({ url: '/pages/customers/index' })
         }, 1000)
       } else {
@@ -165,7 +176,7 @@ export default function LoginPage() {
       console.error('错误信息:', error.message)
       console.error('错误堆栈:', error.stack)
       console.error('完整错误对象:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
-      
+
       Taro.showModal({
         title: '登录失败',
         content: error.message || '未知错误，请查看控制台日志',
@@ -177,58 +188,67 @@ export default function LoginPage() {
   }
 
   return (
-    <View 
-      style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        padding: '40px 32px',
-        backgroundColor: '#f0f9ff',
-        height: '100%'
-      }}
+    <View
+      className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col"
     >
-      {/* Logo */}
-      <View style={{ marginBottom: '48px' }}>
-        <Image 
-          src={logoImage}
-          style={{ 
-            width: '96px', 
-            height: '96px', 
-            borderRadius: '24px' 
-          }}
-          mode="aspectFill"
-        />
+      {/* 顶部导航 */}
+      <View className="pt-12 px-4 pb-4">
+        <View
+          className="w-10 h-10 flex items-center justify-center"
+          onClick={handleBackToHome}
+        >
+          <Text className="text-xl">←</Text>
+        </View>
       </View>
 
-      {/* 标题 */}
-      <Text style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', color: '#1f2937' }}>章鱼经纪人</Text>
-      <Text style={{ fontSize: '14px', marginBottom: '40px', color: '#6b7280' }}>轻量高效的房产经纪人办公工具</Text>
+      {/* Logo 区域 */}
+      <View className="flex-1 flex flex-col items-center justify-center px-6">
+        <View className="mb-6">
+          <Image
+            src={logoImage}
+            style={{
+              width: '96px',
+              height: '96px',
+              borderRadius: '24px',
+              boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3)',
+            }}
+            mode="aspectFill"
+          />
+        </View>
 
-      {/* 登录按钮 */}
-      <View 
-        style={{ 
-          width: '100%', 
-          maxWidth: '320px',
-          height: '48px',
-          backgroundColor: loading ? '#9ca3af' : '#3b82f6',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-        onClick={handleLogin}
-      >
-        <Text style={{ color: '#ffffff', fontSize: '16px', fontWeight: '500' }}>
-          {loading ? '登录中...' : '微信一键登录'}
-        </Text>
-      </View>
+        <Text className="text-2xl font-bold text-gray-800 mb-2">章鱼经纪人</Text>
+        <Text className="text-sm text-gray-500 mb-8">登录后即可同步数据到云端</Text>
 
-      {/* 说明 - 修复：不包含默认同意的表述 */}
-      <View style={{ marginTop: '32px' }}>
-        <Text style={{ fontSize: '12px', textAlign: 'center', color: '#9ca3af' }}>
-          点击登录按钮将弹出用户协议和隐私政策
-        </Text>
+        {/* 登录方式说明 */}
+        <Card className="w-full max-w-sm mb-6">
+          <CardContent className="py-4 px-4">
+            <Text className="block text-sm text-gray-700 font-medium mb-2">登录即表示您同意：</Text>
+            <View className="space-y-2">
+              <Text className="block text-xs text-gray-500">• 《用户协议》</Text>
+              <Text className="block text-xs text-gray-500">• 《隐私政策》</Text>
+              <Text className="block text-xs text-gray-400 mt-2">
+                我们将获取您的微信头像和昵称，用于账号识别
+              </Text>
+            </View>
+          </CardContent>
+        </Card>
+
+        {/* 登录按钮 */}
+        <View
+          className="w-full max-w-sm h-11 bg-blue-500 rounded-xl flex items-center justify-center"
+          onClick={handleLogin}
+        >
+          <Text className="text-white text-base font-medium">
+            {loading ? '登录中...' : '微信一键登录'}
+          </Text>
+        </View>
+
+        {/* 提示 */}
+        <View className="mt-6 text-center">
+          <Text className="text-xs text-gray-400">
+            登录后您的客户、房源等数据将自动备份到云端
+          </Text>
+        </View>
       </View>
 
       {/* 隐私政策弹窗 */}

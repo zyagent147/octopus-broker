@@ -8,7 +8,8 @@ import { usePropertyStore } from '@/stores/property'
 import { useLeaseStore } from '@/stores/lease'
 import { useBillStore, isBillOverdue } from '@/stores/bill'
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, FileText, LogOut, ChevronRight, Shield, Download } from 'lucide-react-taro'
+import { Button } from '@/components/ui/button'
+import { Settings, FileText, LogOut, ChevronRight, Shield, Download, LogIn } from 'lucide-react-taro'
 import { handleExportData } from '@/utils/data-export'
 
 // 默认头像 - 使用 import 导入
@@ -17,14 +18,15 @@ import defaultAvatar from '@/assets/章鱼经纪人.jpeg'
 
 const ProfilePage: FC = () => {
   const user = useUserStore((state) => state.user)
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn)
   const logout = useUserStore((state) => state.logout)
-  
+
   // 从本地存储获取原始数组
   const customers = useCustomerStore((state) => state.customers)
   const properties = usePropertyStore((state) => state.properties)
   const leases = useLeaseStore((state) => state.leases)
   const bills = useBillStore((state) => state.bills)
-  
+
   // 使用 useMemo 缓存所有统计数据
   const stats = useMemo(() => {
     const now = new Date()
@@ -34,7 +36,7 @@ const ProfilePage: FC = () => {
     // 本月新增客户
     const monthNewCustomers = customers.filter(c => {
       const createdDate = new Date(c.created_at)
-      return createdDate.getMonth() === currentMonth && 
+      return createdDate.getMonth() === currentMonth &&
              createdDate.getFullYear() === currentYear
     }).length
 
@@ -44,7 +46,7 @@ const ProfilePage: FC = () => {
     // 本月新增房源
     const monthNewProperties = properties.filter(p => {
       const createdDate = new Date(p.created_at)
-      return createdDate.getMonth() === currentMonth && 
+      return createdDate.getMonth() === currentMonth &&
              createdDate.getFullYear() === currentYear
     }).length
 
@@ -76,14 +78,23 @@ const ProfilePage: FC = () => {
       success: (res) => {
         if (res.confirm) {
           logout()
-          Taro.redirectTo({ url: '/pages/login/index' })
+          Taro.redirectTo({ url: '/pages/home/index' })
         }
       },
     })
   }
 
+  // 跳转到登录页
+  const handleLogin = () => {
+    Taro.navigateTo({ url: '/pages/login/index' })
+  }
+
   // 跳转到编辑资料页面
   const handleEditProfile = () => {
+    if (!isLoggedIn) {
+      Taro.navigateTo({ url: '/pages/login/index' })
+      return
+    }
     Taro.navigateTo({ url: '/pages/profile/edit/index' })
   }
 
@@ -95,10 +106,10 @@ const ProfilePage: FC = () => {
 
   // 管理员菜单项
   const adminMenuItems = [
-    { 
-      icon: Shield, 
-      label: '服务商管理', 
-      action: () => Taro.navigateTo({ url: '/pages/admin/providers/index' }) 
+    {
+      icon: Shield,
+      label: '服务商管理',
+      action: () => Taro.navigateTo({ url: '/pages/admin/providers/index' })
     },
   ]
 
@@ -106,30 +117,53 @@ const ProfilePage: FC = () => {
 
   return (
     <View className="min-h-screen bg-gray-50">
-      {/* 用户信息卡片 */}
-      <View className="bg-blue-500 pt-12 pb-8 px-4" onClick={handleEditProfile}>
+      {/* 用户信息卡片 - 未登录状态 */}
+      <View className="bg-gradient-to-r from-gray-400 to-gray-500 pt-12 pb-8 px-4">
         <View className="flex items-center">
           <View className="w-16 h-16 bg-white rounded-full flex items-center justify-center overflow-hidden">
-            <Image 
-              src={user?.avatar || defaultAvatar} 
-              className="w-full h-full" 
-              mode="aspectFill" 
+            <Image
+              src={defaultAvatar}
+              className="w-full h-full"
+              mode="aspectFill"
             />
           </View>
           <View className="ml-4 flex-1">
             <Text className="block text-white text-lg font-semibold">
-              {user?.nickname || '章鱼经纪人'}
+              {isLoggedIn ? (user?.nickname || '章鱼经纪人') : '未登录'}
             </Text>
-            <Text className="block text-blue-100 text-sm mt-1">
-              {user?.phone || '点击编辑资料'}
+            <Text className="block text-gray-200 text-sm mt-1">
+              {isLoggedIn ? (user?.phone || '点击编辑资料') : '点击下方按钮登录'}
             </Text>
           </View>
-          <ChevronRight size={20} color="#ffffff" />
+          {isLoggedIn && <ChevronRight size={20} color="#ffffff" onClick={handleEditProfile} />}
         </View>
       </View>
 
+      {/* 登录按钮 - 仅未登录时显示 */}
+      {!isLoggedIn && (
+        <View className="px-4 -mt-4">
+          <Card>
+            <CardContent className="py-4">
+              <View className="flex items-center justify-between">
+                <View>
+                  <Text className="block text-sm text-gray-700 font-medium">登录后可同步数据到云端</Text>
+                  <Text className="block text-xs text-gray-500 mt-1">登录后您的数据将自动备份</Text>
+                </View>
+                <Button
+                  className="bg-blue-500 text-white h-9 px-4 rounded-lg flex-row items-center"
+                  onClick={handleLogin}
+                >
+                  <LogIn size={16} color="#ffffff" />
+                  <Text className="ml-1 text-white">登录</Text>
+                </Button>
+              </View>
+            </CardContent>
+          </Card>
+        </View>
+      )}
+
       {/* 数据统计 - 本月数据 */}
-      <View className="px-4 -mt-4">
+      <View className="px-4 -mt-2">
         <Card>
           <CardContent className="py-4">
             <Text className="block text-sm text-gray-500 mb-3">本月数据</Text>
@@ -253,15 +287,17 @@ const ProfilePage: FC = () => {
       </View>
 
       {/* 退出登录按钮 */}
-      <View className="px-4 mt-6">
-        <View
-          className="w-full h-11 bg-white border border-gray-200 rounded-xl flex items-center justify-center"
-          onClick={handleLogout}
-        >
-          <LogOut size={18} color="#ff4d4f" />
-          <Text className="text-red-500 text-sm ml-2">退出登录</Text>
+      {isLoggedIn && (
+        <View className="px-4 mt-6">
+          <View
+            className="w-full h-11 bg-white border border-gray-200 rounded-xl flex items-center justify-center"
+            onClick={handleLogout}
+          >
+            <LogOut size={18} color="#ff4d4f" />
+            <Text className="text-red-500 text-sm ml-2">退出登录</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* 版本信息 */}
       <View className="text-center mt-8 mb-4">
